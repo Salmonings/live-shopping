@@ -1,0 +1,29 @@
+{
+  "name": "supermarket-video-ordering",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "node server.js --no-turbopack",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "next": "^15.3.4",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "selfsigned": "^2.4.1",
+    "simple-peer": "^9.11.1",
+    "socket.io": "^4.8.3",
+    "socket.io-client": "^4.7.2"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
+    "eslint": "^8.55.0",
+    "eslint-config-next": "14.0.4",
+    "typescript": "^5.3.0"
+  }
+}
