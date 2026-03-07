@@ -4,7 +4,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import io from "socket.io-client";
 
 type Branch = { id: string; name: string };
-type CustomerDetails = { name: string; address: string; phone?: string };
+type CustomerDetails = { name: string; phone?: string; address: string };
+type PreviousCustomer = { name: string; address: string } | null;
 
 export default function OrderTaker() {
   const [loggedIn, setLoggedIn] = useState(false);
@@ -24,6 +25,7 @@ export default function OrderTaker() {
   const [facingMode, setFacingMode] = useState<"user" | "environment">(
     "environment",
   );
+  const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [stats, setStats] = useState<{
     byBranch: Record<string, { waiting: number; inCall: number }>;
   } | null>(null);
@@ -40,6 +42,7 @@ export default function OrderTaker() {
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
   const ringtoneRef = useRef<HTMLAudioElement>(null);
+  const customerDetailsRef = useRef<CustomerDetails | null>(null);
 
   const showToast = (msg: string) => {
     setToast(msg);
@@ -141,9 +144,14 @@ export default function OrderTaker() {
         setPendingPartnerId(payload?.partnerId || null);
         setCustomerDetails({
           name: c.name || "",
-          address: c.address || "",
           phone: c.phone || "",
+          address: c.address || "",
         });
+        customerDetailsRef.current = {
+          name: c.name || "",
+          phone: c.phone || "",
+          address: c.address || "",
+        };
         setScreen("incoming");
         startRingtone();
       },
@@ -181,6 +189,7 @@ export default function OrderTaker() {
       audio: { echoCancellation: true, noiseSuppression: true },
     });
     localStreamRef.current = stream;
+    setLocalStream(stream);
     return stream;
   };
 
@@ -228,6 +237,7 @@ export default function OrderTaker() {
     if (!localStreamRef.current) return;
     const newMode = facingMode === "environment" ? "user" : "environment";
     try {
+      localStreamRef.current.getVideoTracks().forEach((t) => t.stop());
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: newMode },
         audio: false,
@@ -239,12 +249,13 @@ export default function OrderTaker() {
           .find((s: RTCRtpSender) => s.track?.kind === "video");
         if (sender) await sender.replaceTrack(videoTrack);
       }
-      localStreamRef.current.getVideoTracks().forEach((t) => t.stop());
+
       localStreamRef.current = new MediaStream([
         videoTrack,
         ...localStreamRef.current.getAudioTracks(),
       ]);
       setFacingMode(newMode);
+      setLocalStream(localStreamRef.current);
     } catch (err) {
       console.error("[media] switchCamera failed:", err);
     }
@@ -294,18 +305,18 @@ export default function OrderTaker() {
           <div className="customer-pill">
             <span>👤</span>
             <span className="pill-name">{customerDetails.name || "—"}</span>
+            {customerDetails.phone && (
+              <>
+                <span className="pill-dot">·</span>
+                <span className="pill-phone">☎️ {customerDetails.phone}</span>
+              </>
+            )}
             {customerDetails.address && (
               <>
                 <span className="pill-dot">·</span>
                 <span className="pill-address">
                   📍 {customerDetails.address}
                 </span>
-              </>
-            )}
-            {customerDetails.phone && (
-              <>
-                <span className="pill-dot">·</span>
-                <span className="pill-phone">☎️ {customerDetails.phone}</span>
               </>
             )}
           </div>

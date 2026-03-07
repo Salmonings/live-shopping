@@ -191,7 +191,7 @@ app.prepare().then(() => {
   const orderTakersByBranch = new Map(); // branchId → [socketId, ...]  (available takers)
   const pairs = {}; // socketId → partnerSocketId  (active calls)
   const pairBranch = {}; // socketId → branchId
-  const customerInfo = new Map(); // socketId → { name, address }
+  const customerInfo = new Map(); // socketId → { name, phone, address }
   const previousCustomerByTaker = new Map(); // takerSocketId → { name, address }
   const managerWatchers = new Set(); // socketIds subscribed to monitor updates
   const rateBuckets = new Map(); // rateLimit key → { count, resetAt }
@@ -256,10 +256,11 @@ app.prepare().then(() => {
             ? "available"
             : "not_available",
         currentCustomer: partnerId
-          ? customerInfo.get(partnerId) || { name: "", address: "" }
-          : { name: "", address: "" },
+          ? customerInfo.get(partnerId) || { name: "", phone: "", address: "" }
+          : { name: "", phone: "", address: "" },
         previousCustomer: previousCustomerByTaker.get(socketId) || {
           name: "",
+          phone: "",
           address: "",
         },
       });
@@ -285,13 +286,13 @@ app.prepare().then(() => {
     if (socketSession?.role === "order_taker") {
       previousCustomerByTaker.set(
         socketId,
-        customerInfo.get(partner) || { name: "", address: "" },
+        customerInfo.get(partner) || { name: "", phone: "", address: "" },
       );
     }
     if (partnerSession?.role === "order_taker") {
       previousCustomerByTaker.set(
         partner,
-        customerInfo.get(socketId) || { name: "", address: "" },
+        customerInfo.get(socketId) || { name: "", phone: "", address: "" },
       );
     }
 
@@ -436,6 +437,7 @@ app.prepare().then(() => {
 
       const branchId = data?.branchId;
       const name = sanitizeText(data?.name, MAX_NAME_LENGTH);
+      const phone = sanitizeText(data?.phone, 20);
       const address = sanitizeText(data?.address, MAX_ADDRESS_LENGTH);
 
       if (!branchId || !getBranch(branches, branchId)) return;
@@ -450,7 +452,7 @@ app.prepare().then(() => {
       if (session.role !== "customer") return;
 
       session.branchId = branchId;
-      customerInfo.set(socket.id, { name, address });
+      customerInfo.set(socket.id, { name, phone, address });
 
       const queue = ensureList(queueByBranch, branchId);
       queueByBranch.set(branchId, enqueueUnique(queue, socket.id));

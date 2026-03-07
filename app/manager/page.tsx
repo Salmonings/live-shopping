@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import io from 'socket.io-client'
 
 type Branch = { id: string; name: string }
-type CustomerInfo = { name: string; address: string }
+type CustomerInfo = { name: string; phone: string; address: string }
 type TakerRow = {
   socketId: string
   userId: string
@@ -60,6 +60,7 @@ function TakerCard({ taker, branchName }: { taker: TakerRow; branchName: (id: st
         {taker.currentCustomer.name ? (
           <>
             <div className="taker-customer-name">{taker.currentCustomer.name}</div>
+            <div className="taker-customer-phone">☎️ {taker.currentCustomer.phone || '—'}</div>
             <div className="taker-customer-address">📍 {taker.currentCustomer.address || '—'}</div>
           </>
         ) : <div className="taker-empty">—</div>}
