@@ -1,4 +1,16 @@
 [
-  { "id": "gouna", "name": "El Gouna Downtown", "lat": 27.3973997, "lng": 33.6747921 },
-  { "id": "marina", "name": "El Gouna Marina", "lat": 27.4084105, "lng": 33.6582165 }
+  {
+    "id": "gouna",
+    "name": "El Gouna Downtown",
+    "lat": 27.3973997,
+    "lng": 33.6747921,
+    "whatsapp": "201284320320"
+  },
+  {
+    "id": "marina",
+    "name": "El Gouna Marina",
+    "lat": 27.4084105,
+    "lng": 33.6582165,
+    "whatsapp": "201274051222"
+  }
 ]
