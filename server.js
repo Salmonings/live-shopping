@@ -149,6 +149,36 @@ function withinRateLimit(rateBuckets, key, max, windowMs) {
 // Writes one plain text + one JSON log file per month to /logs
 // e.g. logs/2026-03.txt and logs/2026-03.json
 
+const LOGS_DIR = path.join(__dirname, "logs");
+
+function ensureLogsDir() {
+  if (!fs.existsSync(LOGS_DIR)) fs.mkdirSync(LOGS_DIR, { recursive: true });
+}
+
+function getLogPrefix() {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, "0");
+  return path.join(LOGS_DIR, `${y}-${m}`);
+}
+
+function writeLog(event, data = {}) {
+  try {
+    ensureLogsDir();
+    const prefix = getLogPrefix();
+    const ts = new Date().toISOString().replace("T", " ").slice(0, 19);
+    const label = event.toUpperCase().padEnd(24);
+    const parts = [`[${ts}] ${label}`];
+    for (const [k, v] of Object.entries(data)) {
+      if (v !== undefined && v !== null && v !== "") parts.push(`${k}=${v}`);
+    }
+    fs.appendFileSync(`${prefix}.txt`, parts.join("  ") + "\n", "utf8");
+    fs.appendFileSync(`${prefix}.json`, JSON.stringify({ ts, event, ...data }) + "\n", "utf8");
+  } catch (err) {
+    console.error("[log] Failed to write log:", err.message);
+  }
+}
+
 
 // ─── Boot ─────────────────────────────────────────────────────────────────────
 
@@ -305,6 +335,22 @@ app.prepare().then(() => {
 
     if (notify) io.to(partner).emit("partner-disconnected");
 
+    const callStart = callStartTimes.get(socketId) ?? callStartTimes.get(partner);
+    const durationSec = callStart ? Math.floor((Date.now() - callStart) / 1000) : null;
+    const durationFmt = durationSec !== null
+      ? `${Math.floor(durationSec / 60)}:${String(durationSec % 60).padStart(2, "0")}`
+      : "unknown";
+    const takerSess = socketSession?.role === "order_taker" ? socketSession : partnerSession;
+    const custId = socketSession?.role === "customer" ? socketId : partner;
+    const cust = customerInfo.get(custId) || {};
+    writeLog("call_ended", {
+      orderTaker: takerSess?.userId,
+      branchId: takerSess?.branchId,
+      customerName: cust.name,
+      customerPhone: cust.phone,
+      duration: durationFmt,
+      durationSeconds: durationSec,
+    });
     delete pairs[partner];
     delete pairs[socketId];
     delete pairBranch[partner];
@@ -366,6 +412,7 @@ app.prepare().then(() => {
           LOGIN_RATE_WINDOW_MS,
         )
       ) {
+        writeLog("login_failed", { reason: "rate_limited", ip: clientIp });
         cb?.({ ok: false, error: "Too many attempts. Try again shortly." });
         return;
       }
@@ -380,6 +427,7 @@ app.prepare().then(() => {
         typeof password !== "string" ||
         password.length > 256
       ) {
+        writeLog("login_failed", { userId: cleanUserId, role: cleanRole, ip: clientIp, })
         cb?.({ ok: false, error: "Invalid credentials" });
         return;
       }
@@ -422,6 +470,7 @@ app.prepare().then(() => {
         branchId: branchId || null,
       };
       sessions.set(socket.id, sessionData);
+      writeLog("login_success", { userId: cleanUserId, role: cleanRole, branchId: branchId || null });
       cb?.({ ok: true, session: sessionData });
 
       broadcastStats();
@@ -466,6 +515,7 @@ app.prepare().then(() => {
 
       session.branchId = branchId;
       customerInfo.set(socket.id, { name, phone, address });
+      writeLog("customer_joined_queue", { name, phone, address, branchId });
 
       const queue = ensureList(queueByBranch, branchId);
       queueByBranch.set(branchId, enqueueUnique(queue, socket.id));
@@ -498,6 +548,7 @@ app.prepare().then(() => {
       session.branchId = branchId;
       const takers = ensureList(orderTakersByBranch, branchId);
       orderTakersByBranch.set(branchId, enqueueUnique(takers, socket.id));
+      writeLog("order_taker_available", { userId: session.userId, branchId });
 
       checkMatch(branchId);
       broadcastStats();
@@ -508,6 +559,7 @@ app.prepare().then(() => {
     socket.on("order-taker-not-available", () => {
       const session = sessions.get(socket.id);
       if (!session || session.role !== "order_taker") return;
+      writeLog("order_taker_offline", { userId: session.userId, branchId: session.branchId });
       removeFromAllBranches(orderTakersByBranch, socket.id);
       broadcastStats();
       broadcastMonitor();
@@ -546,6 +598,14 @@ app.prepare().then(() => {
       const callStartedAt = Date.now();
       callStartTimes.set(socket.id, callStartedAt);
       callStartTimes.set(data.to, callStartedAt);
+      const cInfo = customerInfo.get(data.to) || {};
+      writeLog("call_started", {
+        orderTaker: session.userId,
+        branchId: session.branchId,
+        customerName: cInfo.name,
+        customerPhone: cInfo.phone,
+        customerAddress: cInfo.address,
+      });
 
       io.to(data.to).emit("call-accepted", { partnerId: socket.id, callStartedAt });
       io.to(socket.id).emit("call-started", { callStartedAt });
@@ -564,6 +624,10 @@ app.prepare().then(() => {
     // ── Disconnect ───────────────────────────────────────────────────────────
     socket.on("disconnect", () => {
       console.log(`[socket] disconnected: ${socket.id}`);
+      const discSession = sessions.get(socket.id);
+      if (discSession?.role === "order_taker") {
+        writeLog("order_taker_logout", { userId: discSession.userId, branchId: discSession.branchId });
+      }
 
       removeFromAllBranches(queueByBranch, socket.id);
       removeFromAllBranches(orderTakersByBranch, socket.id);
