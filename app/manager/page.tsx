@@ -18,6 +18,12 @@ type MonitorPayload = {
   counts: { totalConnections: number; totalOrderTakers: number }
   takers: TakerRow[]
 }
+type RecordingFile = { type: string; filename: string; path: string }
+type RecordingEntry = {
+  callId: string; timestamp: string; date: string; orderTaker: string; branchId: string
+  customerName: string; customerPhone: string; customerAddress: string; duration: string
+  files: RecordingFile[]
+}
 
 function useCallDuration(callStartedAt: number | undefined, active: boolean): string {
   const [, setTick] = useState(0)
@@ -60,7 +66,7 @@ function TakerCard({ taker, branchName }: { taker: TakerRow; branchName: (id: st
         {taker.currentCustomer.name ? (
           <>
             <div className="taker-customer-name">{taker.currentCustomer.name}</div>
-            <div className="taker-customer-phone">☎️ {taker.currentCustomer.phone || '—'}</div>
+            <div className="taker-customer-address">☎️ {taker.currentCustomer.phone || '—'}</div>
             <div className="taker-customer-address">📍 {taker.currentCustomer.address || '—'}</div>
           </>
         ) : <div className="taker-empty">—</div>}
@@ -81,10 +87,114 @@ function TakerCard({ taker, branchName }: { taker: TakerRow; branchName: (id: st
   )
 }
 
+function RecordingsTab({ branches }: { branches: Branch[] }) {
+  const [recordings, setRecordings] = useState<RecordingEntry[]>([])
+  const [loading, setLoading] = useState(true)
+  const [filterBranch, setFilterBranch] = useState('all')
+  const [filterDate, setFilterDate] = useState('')
+  const [playing, setPlaying] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState<string | null>(null)
+
+  useEffect(() => {
+    fetch('/api/recordings').then(r => r.json())
+      .then(data => { setRecordings(Array.isArray(data) ? data : []); setLoading(false) })
+      .catch(() => setLoading(false))
+  }, [])
+
+  const filtered = recordings.filter(r => {
+    if (filterBranch !== 'all' && r.branchId !== filterBranch) return false
+    if (filterDate && !r.date.startsWith(filterDate)) return false
+    return true
+  })
+
+  const deleteRec = async (callId: string) => {
+    if (!confirm('Delete this recording? This cannot be undone.')) return
+    setDeleting(callId)
+    try {
+      await fetch(`/api/recordings/${callId}`, { method: 'DELETE' })
+      setRecordings(prev => prev.filter(r => r.callId !== callId))
+    } catch { alert('Delete failed') }
+    setDeleting(null)
+  }
+
+  const getFile = (r: RecordingEntry, type: string) => r.files.find(f => f.type === type)
+
+  if (loading) return <div className="dashboard-empty"><div className="empty-sub">Loading recordings...</div></div>
+
+  return (
+    <div style={{ padding: '0 24px 32px' }}>
+      <div className="recordings-filters">
+        <select className="rec-filter-select" value={filterBranch} onChange={e => setFilterBranch(e.target.value)}>
+          <option value="all">All Branches</option>
+          {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+        </select>
+        <input className="rec-filter-input" type="month" value={filterDate} onChange={e => setFilterDate(e.target.value)} />
+        <span className="rec-count">{filtered.length} recording{filtered.length !== 1 ? 's' : ''}</span>
+      </div>
+
+      {filtered.length === 0 ? (
+        <div className="dashboard-empty">
+          <div className="empty-icon">🎙️</div>
+          <div className="empty-title">No recordings found</div>
+          <div className="empty-sub">Recordings appear here after calls end</div>
+        </div>
+      ) : (
+        <div className="recordings-table-wrap">
+          <table className="recordings-table">
+            <thead><tr><th>Date & Time</th><th>Order Taker</th><th>Branch</th><th>Customer</th><th>Duration</th><th>Files</th><th></th></tr></thead>
+            <tbody>
+              {filtered.map(r => {
+                const dt = new Date(r.timestamp)
+                const combined = getFile(r, 'combined')
+                const otFile = getFile(r, 'ordertaker')
+                const custFile = getFile(r, 'customer')
+                const isPlaying = playing === r.callId
+                return (
+                  <tr key={r.callId}>
+                    <td><div className="rec-date">{dt.toLocaleDateString()}</div><div className="rec-time">{dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div></td>
+                    <td className="rec-taker">{r.orderTaker}</td>
+                    <td className="rec-branch">{branches.find(b => b.id === r.branchId)?.name || r.branchId}</td>
+                    <td>
+                      <div className="rec-customer-name">{r.customerName || '—'}</div>
+                      {r.customerPhone && <div className="rec-customer-sub">☎️ {r.customerPhone}</div>}
+                      {r.customerAddress && <div className="rec-customer-sub">📍 {r.customerAddress}</div>}
+                    </td>
+                    <td className="rec-duration">{r.duration || '—'}</td>
+                    <td>
+                      <div className="rec-file-btns">
+                        {combined && <a className="rec-file-btn combined" href={`/api/recordings/file/${combined.path}`} download>🎬 Combined</a>}
+                        {otFile && <a className="rec-file-btn ordertaker" href={`/api/recordings/file/${otFile.path}`} download>📹 Taker</a>}
+                        {custFile && <a className="rec-file-btn customer" href={`/api/recordings/file/${custFile.path}`} download>🎤 Customer</a>}
+                      </div>
+                      {isPlaying && combined && (
+                        <div className="rec-player-wrap">
+                          <video src={`/api/recordings/file/${combined.path}`} controls autoPlay style={{ width: '100%', borderRadius: 8, marginTop: 8 }} />
+                          <button className="rec-close-player" onClick={() => setPlaying(null)}>✕ Close</button>
+                        </div>
+                      )}
+                    </td>
+                    <td>
+                      <div className="rec-actions">
+                        {combined && <button className="rec-action-btn play" onClick={() => setPlaying(isPlaying ? null : r.callId)}>{isPlaying ? '⏹' : '▶'}</button>}
+                        <button className="rec-action-btn delete" onClick={() => deleteRec(r.callId)} disabled={deleting === r.callId}>{deleting === r.callId ? '...' : '🗑'}</button>
+                      </div>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function ManagerPage() {
   const socketRef = useRef<any>(null)
   const [branches, setBranches] = useState<Branch[]>([])
   const [selectedBranch, setSelectedBranch] = useState('all')
+  const [activeTab, setActiveTab] = useState<'live' | 'recordings'>('live')
   const [userId, setUserId] = useState('')
   const [password, setPassword] = useState('')
   const [loggedIn, setLoggedIn] = useState(false)
@@ -162,53 +272,64 @@ export default function ManagerPage() {
         </span>
       </div>
 
-      <div className="dashboard-stats">
-        <div className="dashboard-stat blue">
-          <div className="stat-value">{filteredCounts.totalConnections}</div>
-          <div className="stat-key">Active Calls</div>
-        </div>
-        <div className="dashboard-stat green">
-          <div className="stat-value">{filteredTakers.filter(t => t.status === 'available').length}</div>
-          <div className="stat-key">Available</div>
-        </div>
-        <div className="dashboard-stat gray">
-          <div className="stat-value">{filteredTakers.filter(t => t.status === 'not_available').length}</div>
-          <div className="stat-key">Offline</div>
-        </div>
-        <div className="dashboard-stat purple">
-          <div className="stat-value">{filteredCounts.totalOrderTakers}</div>
-          <div className="stat-key">Total Takers</div>
-        </div>
+      <div className="dashboard-main-tabs">
+        <button className={`main-tab${activeTab === 'live' ? ' active' : ''}`} onClick={() => setActiveTab('live')}>📡 Live Monitor</button>
+        <button className={`main-tab${activeTab === 'recordings' ? ' active' : ''}`} onClick={() => setActiveTab('recordings')}>🎙️ Recordings</button>
       </div>
 
-      <div className="dashboard-tabs">
-        {[{ id: 'all', name: 'All Branches' }, ...branches].map(b => {
-          const active = selectedBranch === b.id
-          const count = b.id === 'all' ? monitor.takers.length : monitor.takers.filter(t => t.branchId === b.id).length
-          return (
-            <button key={b.id} className={`dashboard-tab${active ? ' active' : ''}`} onClick={() => setSelectedBranch(b.id)}>
-              {b.name}
-              {count > 0 && <span className="tab-count">{count}</span>}
-            </button>
-          )
-        })}
-      </div>
-
-      {filteredTakers.length === 0 ? (
-        <div className="dashboard-empty">
-          <div className="empty-icon">📭</div>
-          <div className="empty-title">No order takers online</div>
-          <div className="empty-sub">
-            {selectedBranch === 'all' ? 'Nobody has logged in yet' : `Nobody online at ${branchName(selectedBranch)}`}
+      {activeTab === 'live' && (
+        <>
+          <div className="dashboard-stats">
+            <div className="dashboard-stat blue">
+              <div className="stat-value">{filteredCounts.totalConnections}</div>
+              <div className="stat-key">Active Calls</div>
+            </div>
+            <div className="dashboard-stat green">
+              <div className="stat-value">{filteredTakers.filter(t => t.status === 'available').length}</div>
+              <div className="stat-key">Available</div>
+            </div>
+            <div className="dashboard-stat gray">
+              <div className="stat-value">{filteredTakers.filter(t => t.status === 'not_available').length}</div>
+              <div className="stat-key">Offline</div>
+            </div>
+            <div className="dashboard-stat purple">
+              <div className="stat-value">{filteredCounts.totalOrderTakers}</div>
+              <div className="stat-key">Total Takers</div>
+            </div>
           </div>
-        </div>
-      ) : (
-        <div className="dashboard-grid">
-          {filteredTakers.map(taker => (
-            <TakerCard key={taker.socketId} taker={taker} branchName={branchName} />
-          ))}
-        </div>
+
+          <div className="dashboard-tabs">
+            {[{ id: 'all', name: 'All Branches' }, ...branches].map(b => {
+              const active = selectedBranch === b.id
+              const count = b.id === 'all' ? monitor.takers.length : monitor.takers.filter(t => t.branchId === b.id).length
+              return (
+                <button key={b.id} className={`dashboard-tab${active ? ' active' : ''}`} onClick={() => setSelectedBranch(b.id)}>
+                  {b.name}
+                  {count > 0 && <span className="tab-count">{count}</span>}
+                </button>
+              )
+            })}
+          </div>
+
+          {filteredTakers.length === 0 ? (
+            <div className="dashboard-empty">
+              <div className="empty-icon">📭</div>
+              <div className="empty-title">No order takers online</div>
+              <div className="empty-sub">
+                {selectedBranch === 'all' ? 'Nobody has logged in yet' : `Nobody online at ${branchName(selectedBranch)}`}
+              </div>
+            </div>
+          ) : (
+            <div className="dashboard-grid">
+              {filteredTakers.map(taker => (
+                <TakerCard key={taker.socketId} taker={taker} branchName={branchName} />
+              ))}
+            </div>
+          )}
+        </>
       )}
+
+      {activeTab === 'recordings' && <RecordingsTab branches={branches} />}
     </div>
   )
 }

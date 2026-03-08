@@ -1007,3 +1007,211 @@ button.btn-red {
   z-index: 21;
   pointer-events: none;
 }
+
+/* ── REC badge ───────────────────────────────────────────────────────────── */
+
+.rec-badge {
+  position: fixed;
+  top: 16px;
+  left: 16px;
+  background: rgba(220, 38, 38, 0.9);
+  color: white;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 5px 10px;
+  border-radius: 999px;
+  z-index: 30;
+  letter-spacing: 0.05em;
+  animation: recPulse 2s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes recPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+/* ── Recording notice on customer page ───────────────────────────────────── */
+
+.recording-notice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 16px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.75);
+  line-height: 1.4;
+}
+
+/* ── Dashboard main tabs ─────────────────────────────────────────────────── */
+
+.dashboard-main-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 0 24px 16px;
+  border-bottom: 1px solid #252538;
+  margin-bottom: 0;
+}
+
+.main-tab {
+  padding: 8px 20px;
+  border-radius: 8px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  background: transparent;
+  color: #4b5563;
+  font-size: 14px;
+  font-weight: 500;
+  width: auto;
+  margin-top: 0;
+  box-shadow: none;
+  transition: background 0.15s, color 0.15s;
+}
+
+.main-tab:hover {
+  background: #1a1a2e;
+  color: #94a3b8;
+  transform: none;
+  box-shadow: none;
+}
+
+.main-tab.active {
+  background: #6366f1;
+  color: white;
+  font-weight: 600;
+  border-color: #6366f1;
+}
+
+/* ── Recordings filters ──────────────────────────────────────────────────── */
+
+.recordings-filters {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 0 20px;
+  flex-wrap: wrap;
+}
+
+.rec-filter-select {
+  background: #1a1a2e;
+  border: 1px solid #252538;
+  color: #e2e8f0;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 13px;
+  width: auto;
+  margin: 0;
+}
+
+.rec-filter-input {
+  background: #1a1a2e;
+  border: 1px solid #252538;
+  color: #e2e8f0;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 13px;
+  width: auto;
+  margin: 0;
+  color-scheme: dark;
+}
+
+.rec-count {
+  font-size: 12px;
+  color: #4b5563;
+  margin-left: auto;
+}
+
+/* ── Recordings table ────────────────────────────────────────────────────── */
+
+.recordings-table-wrap {
+  overflow-x: auto;
+  border-radius: 12px;
+  border: 1px solid #252538;
+}
+
+.recordings-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.recordings-table th {
+  background: #151525;
+  color: #374151;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 12px 16px;
+  text-align: left;
+  border-bottom: 1px solid #252538;
+  white-space: nowrap;
+}
+
+.recordings-table td {
+  padding: 14px 16px;
+  border-bottom: 1px solid #1a1a2e;
+  vertical-align: top;
+  color: #e2e8f0;
+}
+
+.recordings-table tr:last-child td { border-bottom: none; }
+.recordings-table tr:hover td { background: #1a1a2e; }
+
+.rec-date { font-size: 13px; font-weight: 600; color: #e2e8f0; white-space: nowrap; }
+.rec-time { font-size: 12px; color: #4b5563; margin-top: 2px; }
+.rec-taker { font-weight: 600; color: #a78bfa; white-space: nowrap; }
+.rec-branch { color: #64748b; white-space: nowrap; }
+.rec-customer-name { font-weight: 600; color: #e2e8f0; }
+.rec-customer-sub { font-size: 12px; color: #4b5563; margin-top: 2px; }
+.rec-duration { font-weight: 600; color: #22c55e; white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+/* ── Recording file buttons ──────────────────────────────────────────────── */
+
+.rec-file-btns { display: flex; flex-direction: column; gap: 5px; }
+
+.rec-file-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: opacity 0.15s;
+}
+.rec-file-btn:hover { opacity: 0.8; }
+.rec-file-btn.combined { background: rgba(99,102,241,0.15); color: #818cf8; border: 1px solid rgba(99,102,241,0.25); }
+.rec-file-btn.ordertaker { background: rgba(59,130,246,0.12); color: #60a5fa; border: 1px solid rgba(59,130,246,0.2); }
+.rec-file-btn.customer { background: rgba(34,197,94,0.1); color: #4ade80; border: 1px solid rgba(34,197,94,0.2); }
+
+/* ── Recordings player ───────────────────────────────────────────────────── */
+
+.rec-player-wrap { margin-top: 8px; }
+.rec-close-player {
+  background: #252538; color: #94a3b8; border: none; border-radius: 6px;
+  padding: 4px 10px; font-size: 12px; cursor: pointer; margin-top: 6px;
+  width: auto; box-shadow: none;
+}
+
+/* ── Row action buttons ──────────────────────────────────────────────────── */
+
+.rec-actions { display: flex; flex-direction: column; gap: 5px; align-items: center; }
+
+.rec-action-btn {
+  width: 32px; height: 32px; border-radius: 8px;
+  border: 1px solid #252538; background: #1a1a2e;
+  cursor: pointer; font-size: 14px;
+  display: flex; align-items: center; justify-content: center;
+  padding: 0; margin: 0; box-shadow: none; transition: background 0.15s;
+}
+.rec-action-btn:hover:not(:disabled) { transform: none; box-shadow: none; }
+.rec-action-btn.play:hover { background: rgba(99,102,241,0.2); }
+.rec-action-btn.delete:hover { background: rgba(220,38,38,0.2); }
+.rec-action-btn:disabled { opacity: 0.4; cursor: not-allowed; }

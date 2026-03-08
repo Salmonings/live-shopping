@@ -1,12 +1,99 @@
 "use client";
 
-import { use, useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import io from "socket.io-client";
 import { useCallDuration } from "../useCallDuration";
 
 type Branch = { id: string; name: string };
 type CustomerDetails = { name: string; phone?: string; address: string };
 type PreviousCustomer = { name: string; address: string } | null;
+
+
+// ── Recording helpers ──────────────────────────────────────────────────────────
+
+function getMimeType(): string {
+  const types = ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm']
+  return types.find(t => MediaRecorder.isTypeSupported(t)) || 'video/webm'
+}
+
+interface Recorders {
+  combined: MediaRecorder
+  orderTaker: MediaRecorder
+  customer: MediaRecorder
+  combinedChunks: Blob[]
+  orderTakerChunks: Blob[]
+  customerChunks: Blob[]
+}
+
+function startRecording(localStream: MediaStream, remoteStream: MediaStream): Recorders | null {
+  try {
+    const mimeType = getMimeType()
+    const ctx = new AudioContext()
+    const localSrc = ctx.createMediaStreamSource(localStream)
+    const remoteSrc = ctx.createMediaStreamSource(remoteStream)
+    const dest = ctx.createMediaStreamDestination()
+    localSrc.connect(dest)
+    remoteSrc.connect(dest)
+    const combinedStream = new MediaStream([...localStream.getVideoTracks(), ...dest.stream.getAudioTracks()])
+    const orderTakerStream = new MediaStream([...localStream.getVideoTracks(), ...localStream.getAudioTracks()])
+    const customerStream = new MediaStream([...remoteStream.getAudioTracks()])
+    const combinedChunks: Blob[] = []
+    const orderTakerChunks: Blob[] = []
+    const customerChunks: Blob[] = []
+    const combined = new MediaRecorder(combinedStream, { mimeType })
+    const orderTaker = new MediaRecorder(orderTakerStream, { mimeType })
+    const customer = new MediaRecorder(customerStream, { mimeType: 'audio/webm' })
+    combined.ondataavailable = e => { if (e.data.size > 0) combinedChunks.push(e.data) }
+    orderTaker.ondataavailable = e => { if (e.data.size > 0) orderTakerChunks.push(e.data) }
+    customer.ondataavailable = e => { if (e.data.size > 0) customerChunks.push(e.data) }
+    combined.start(1000)
+    orderTaker.start(1000)
+    customer.start(1000)
+    return { combined, orderTaker, customer, combinedChunks, orderTakerChunks, customerChunks }
+  } catch (err) {
+    console.error('[recording] Failed to start:', err)
+    return null
+  }
+}
+
+async function stopAndUpload(
+  recorders: Recorders,
+  meta: { callId: string; orderTaker: string; branchId: string; customerName: string; customerPhone: string; customerAddress: string; duration: string; callStartedAt: number },
+  onProgress: (msg: string) => void
+): Promise<void> {
+  return new Promise(resolve => {
+    let stopped = 0
+    const checkDone = () => { stopped++; if (stopped >= 3) uploadBlobs().then(resolve) }
+    recorders.combined.onstop = checkDone
+    recorders.orderTaker.onstop = checkDone
+    recorders.customer.onstop = checkDone
+    recorders.combined.stop()
+    recorders.orderTaker.stop()
+    recorders.customer.stop()
+    async function uploadBlobs() {
+      onProgress('Uploading recording...')
+      try {
+        const form = new FormData()
+        form.append('callId', meta.callId)
+        form.append('orderTaker', meta.orderTaker)
+        form.append('branchId', meta.branchId)
+        form.append('customerName', meta.customerName)
+        form.append('customerPhone', meta.customerPhone)
+        form.append('customerAddress', meta.customerAddress)
+        form.append('duration', meta.duration)
+        form.append('timestamp', new Date(meta.callStartedAt).toISOString())
+        form.append('combined', new Blob(recorders.combinedChunks, { type: 'video/webm' }), 'combined.webm')
+        form.append('ordertaker', new Blob(recorders.orderTakerChunks, { type: 'video/webm' }), 'ordertaker.webm')
+        form.append('customer', new Blob(recorders.customerChunks, { type: 'audio/webm' }), 'customer.webm')
+        await fetch('/api/recordings/upload', { method: 'POST', body: form })
+        onProgress('Recording saved ✓')
+      } catch (err) {
+        console.error('[recording] Upload failed:', err)
+        onProgress('Upload failed')
+      }
+    }
+  })
+}
 
 export default function OrderTaker() {
   const [loggedIn, setLoggedIn] = useState(false);
@@ -15,7 +102,7 @@ export default function OrderTaker() {
   const [branchId, setBranchId] = useState("");
   const [loginError, setLoginError] = useState("");
   const [branches, setBranches] = useState<Branch[]>([]);
-  const [screen, setScreen] = useState<"idle" | "incoming" | "call">("idle");
+  const [screen, setScreen] = useState<"idle" | "incoming" | "call" | "uploading">("idle");
   const [available, setAvailable] = useState(false);
   const [pendingPartnerId, setPendingPartnerId] = useState<string | null>(null);
   const [customerDetails, setCustomerDetails] =
@@ -33,6 +120,7 @@ export default function OrderTaker() {
 const [callStartedAt, setCallStartedAt] = useState<number | null>(null);
   const [showRingtonePrompt, setShowRingtonePrompt] = useState(false);
   const [toast, setToast] = useState("");
+  const [uploadStatus, setUploadStatus] = useState("");
 
   const socketRef = useRef<any>(null);
   const peerRef = useRef<RTCPeerConnection | null>(null);
@@ -45,7 +133,16 @@ const [callStartedAt, setCallStartedAt] = useState<number | null>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
   const ringtoneRef = useRef<HTMLAudioElement>(null);
   const customerDetailsRef = useRef<CustomerDetails | null>(null);
+  const recordersRef = useRef<Recorders | null>(null);
+  const callIdRef = useRef<string | null>(null);
+  const callStartedAtRef = useRef<number | null>(null);
+  const userIdRef = useRef("");
+  const branchIdRef = useRef("");
   const duration = useCallDuration(callStartedAt);
+
+  // Keep refs in sync with state for use inside async callbacks
+  useEffect(() => { userIdRef.current = userId }, [userId])
+  useEffect(() => { branchIdRef.current = branchId }, [branchId])
 
   const showToast = (msg: string) => {
     setToast(msg);
@@ -66,7 +163,33 @@ const [callStartedAt, setCallStartedAt] = useState<number | null>(null);
   };
 
   const handleDisconnect = useCallback(
-    (stayAvailable = false) => {
+    async (stayAvailable = false) => {
+      // Save previous customer before clearing
+      if (customerDetailsRef.current) {
+        customerDetailsRef.current = null;
+      }
+
+      // Stop recording and upload
+      if (recordersRef.current) {
+        const rec = recordersRef.current;
+        recordersRef.current = null;
+        setScreen("uploading");
+        const sec = callStartedAtRef.current ? Math.floor((Date.now() - callStartedAtRef.current) / 1000) : 0;
+        const dur = `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, "0")}`;
+        const snap = { ...(customerDetailsRef.current || { name: "", phone: "", address: "" }) };
+        await stopAndUpload(rec, {
+          callId: callIdRef.current || "",
+          orderTaker: userIdRef.current,
+          branchId: branchIdRef.current,
+          customerName: snap.name || "",
+          customerPhone: snap.phone || "",
+          customerAddress: snap.address || "",
+          duration: dur,
+          callStartedAt: callStartedAtRef.current || Date.now(),
+        }, setUploadStatus);
+        setTimeout(() => setUploadStatus(""), 3000);
+      }
+
       peerRef.current?.close();
       peerRef.current = null;
       localStreamRef.current?.getTracks().forEach((t) => t.stop());
@@ -78,14 +201,16 @@ const [callStartedAt, setCallStartedAt] = useState<number | null>(null);
       setIsMuted(false);
       setCameraOn(true);
       setCallStartedAt(null);
+      callIdRef.current = null;
+      callStartedAtRef.current = null;
       if (stayAvailable && socketRef.current) {
-        socketRef.current.emit("order-taker-ready", { branchId });
+        socketRef.current.emit("order-taker-ready", { branchId: branchIdRef.current });
         setAvailable(true);
       } else {
         setAvailable(false);
       }
     },
-    [branchId],
+    [],
   );
 
   const startCall = useCallback(
@@ -99,8 +224,15 @@ const [callStartedAt, setCallStartedAt] = useState<number | null>(null);
             signal: { ice: e.candidate },
           });
       };
+      const remoteStream = new MediaStream();
+      let recordingStarted = false;
       pc.ontrack = (e) => {
+        e.streams[0].getTracks().forEach(t => remoteStream.addTrack(t));
         if (audioRef.current) audioRef.current.srcObject = e.streams[0];
+        if (localStreamRef.current && !recordingStarted) {
+          recordingStarted = true;
+          recordersRef.current = startRecording(localStreamRef.current, remoteStream);
+        }
       };
       pc.onconnectionstatechange = () => {
         if (pc.connectionState === "connected") {
@@ -170,8 +302,10 @@ const [callStartedAt, setCallStartedAt] = useState<number | null>(null);
         } catch (_) {}
       }
     });
-    socket.on("call-started", ({ callStartedAt }: { callStartedAt: number }) => {
+    socket.on("call-started", ({ callStartedAt, callId }: { callStartedAt: number; callId: string }) => {
       setCallStartedAt(callStartedAt);
+      callIdRef.current = callId;
+      callStartedAtRef.current = callStartedAt;
     });
     socket.on("partner-disconnected", () => {
       stopRingtone();
@@ -295,7 +429,21 @@ const [callStartedAt, setCallStartedAt] = useState<number | null>(null);
 
   const branchLabel = branches.find((b) => b.id === branchId)?.name || "Branch";
 
-  // ── Call screen ────────────────────────────────────────────────────────────
+  // ── Uploading screen ────────────────────────────────────────────────────────
+  if (screen === "uploading") {
+    return (
+      <main>
+        <div className="card" style={{ textAlign: "center" }}>
+          <div style={{ fontSize: 40, marginBottom: 16 }}>⏳</div>
+          <div className="card-title" style={{ marginBottom: 8 }}>Saving Recording</div>
+          <p style={{ fontSize: 14, opacity: 0.75 }}>{uploadStatus || "Please wait..."}</p>
+          <p style={{ fontSize: 12, opacity: 0.5, marginTop: 12 }}>Do not close this tab</p>
+        </div>
+      </main>
+    );
+  }
+
+    // ── Call screen ────────────────────────────────────────────────────────────
   if (screen === "call") {
     return (
       <div style={{ position: "fixed", inset: 0, background: "#000" }}>
@@ -307,6 +455,8 @@ const [callStartedAt, setCallStartedAt] = useState<number | null>(null);
           style={{ width: "100%", height: "100%", objectFit: "cover" }}
         />
         <audio ref={audioRef} autoPlay />
+
+        <div className="rec-badge">⏺ REC</div>
 
         {customerDetails && (
           <div className="customer-pill">
