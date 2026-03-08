@@ -636,6 +636,15 @@ app.prepare().then(() => {
         return;
       }
 
+      // Prevent duplicate logins — same userId + role already has an active session
+      const alreadyLoggedIn = Array.from(sessions.values()).some(
+        (s) => s.userId === cleanUserId && s.role === cleanRole,
+      );
+      if (alreadyLoggedIn) {
+        cb?.({ ok: false, error: "This account is already logged in elsewhere." });
+        return;
+      }
+
       const sessionData = {
         userId: cleanUserId,
         role: cleanRole,
