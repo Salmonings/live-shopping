@@ -145,6 +145,11 @@ function withinRateLimit(rateBuckets, key, max, windowMs) {
   return true;
 }
 
+// ─── Logging ──────────────────────────────────────────────────────────────────
+// Writes one plain text + one JSON log file per month to /logs
+// e.g. logs/2026-03.txt and logs/2026-03.json
+
+
 // ─── Boot ─────────────────────────────────────────────────────────────────────
 
 app.prepare().then(() => {
@@ -384,7 +389,7 @@ app.prepare().then(() => {
       }
       if (
         cleanRole === "order_taker" &&
-        (!branchId || !getBranch(branches, branchId))
+        branchId && !getBranch(branches, branchId)
       ) {
         cb?.({ ok: false, error: "Invalid branch" });
         return;
@@ -403,6 +408,10 @@ app.prepare().then(() => {
         : false;
       if (!validPassword || user.role !== cleanRole) {
         // Deliberately vague error — don't tell attacker which part was wrong
+        cb?.({ ok: false, error: "Invalid credentials" });
+        return;
+      }
+      if (user.branchId && user.branchId !== branchId) {
         cb?.({ ok: false, error: "Invalid credentials" });
         return;
       }
