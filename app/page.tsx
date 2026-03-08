@@ -60,6 +60,7 @@ export default function CustomerPage() {
   const [isMuted, setIsMuted] = useState(false);
   const [joining, setJoining] = useState(false);
   const [toast, setToast] = useState("");
+  const [stats, setStats] = useState<{ totalInCall: number; byBranch: Record<string, { waiting: number; inCall: number }> } | null>(null);
 
   const socketRef = useRef<any>(null);
   const peerRef = useRef<RTCPeerConnection | null>(null);
@@ -126,6 +127,9 @@ export default function CustomerPage() {
     });
     socket.on("queue-position", (pos: number) => {
       setQueuePosition(pos);
+    });
+    socket.on("stats", (s: any) => {
+      setStats(s || null);
     });
     socket.on("matched", () => {
       setScreen("waiting");
@@ -348,6 +352,16 @@ export default function CustomerPage() {
           >
             {joining ? "Connecting..." : "Place Call"}
           </button>
+          {(() => {
+            const branchId = selectedBranchId === "auto" ? null : selectedBranchId;
+            const inCall = branchId ? (stats?.byBranch?.[branchId]?.inCall ?? 0) : stats?.totalInCall ?? 0;
+            return inCall > 0 ? (
+              <div className="taker-count-pill" style={{ marginTop: 12 }}>
+                <span className="taker-count-dot active" />
+                {inCall} order taker{inCall !== 1 ? "s" : ""} online
+              </div>
+            ) : null;
+          })()}
         </div>
       )}
 
@@ -356,12 +370,26 @@ export default function CustomerPage() {
         <div className="card" style={{ textAlign: "center" }}>
           <p>⏳ You're in the queue</p>
           <div className="queue-position">{queuePosition}</div>
-          <p style={{ marginBottom: 32 }}>
+          <p style={{ marginBottom: 24 }}>
             {queuePosition === 0
               ? "You're next!"
               : `${queuePosition === 1 ? "person" : "people"} ahead of you`}
           </p>
-          <button className="btn-ghost" onClick={leaveQueue}>
+          {(() => {
+            const branchId = selectedBranchId === "auto"
+              ? (userLocation ? findClosestBranch(userLocation, branches)?.id : null) ?? branches[0]?.id
+              : selectedBranchId;
+            const inCall = stats?.byBranch?.[branchId]?.inCall ?? 0;
+            return (
+              <div className="taker-count-pill">
+                <span className={`taker-count-dot${inCall > 0 ? " active" : ""}`} />
+                {inCall > 0
+                  ? `${inCall} order taker${inCall !== 1 ? "s" : ""} online`
+                  : "No order takers online right now"}
+              </div>
+            );
+          })()}
+          <button className="btn-ghost" style={{ marginTop: 20 }} onClick={leaveQueue}>
             Leave Queue
           </button>
         </div>
@@ -383,13 +411,13 @@ export default function CustomerPage() {
         </div>
       )}
 
-      {/* WhatsApp Tooltip */}
+      {/* WhatsApp Tooltip - fixed above the bubble */}
       {!tooltipDismissed && !showWhatsapp && (
         <div
-          className="whatsapp-tooltip"
+          className="wa-tooltip"
           onClick={() => setTooltipDismissed(true)}
         >
-          💬 Need to change your order or ask a question?
+          💬 Need help or want to change your order?
         </div>
       )}
 
