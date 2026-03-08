@@ -4,6 +4,10 @@ A WebRTC-based video ordering platform for Bestway Supermarket. Customers place 
 
 ---
 
+[![License: CC BY-NC 4.0](https://img.shields.io/badge/License-CC_BY--NC_4.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc/4.0/)
+
+---
+
 ## How It Works
 
 1. Customer visits the site, enters their name, phone, and delivery address
