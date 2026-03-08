@@ -17,7 +17,7 @@ build/
 
 # ── Sensitive data files ──────────────────────────────────────────────────────
 users.json
-users.json.bak
+branches.json
 
 # ── SSL certs (if stored locally) ────────────────────────────────────────────
 *.pem

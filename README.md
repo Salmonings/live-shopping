@@ -41,7 +41,7 @@ app/
 server.js               # Custom HTTPS + Socket.io server
 create-user.js          # CLI tool to create order taker / manager accounts
 migrate-passwords.js    # Migrates plain text passwords to bcrypt hashes
-branches.json           # Branch list with names, coordinates, WhatsApp numbers
+branches.json           # Branch list with names, coordinates, WhatsApp numbers (never commit this)
 users.json              # User accounts (never commit this)
 logs/                   # Monthly log files (auto-created, never commit)
 public/
@@ -281,5 +281,5 @@ Number format: international without `+` — e.g. `201012345678` not `+201012345
 ## Notes
 
 - All server state is in memory. If the server restarts, active calls and queues are cleared. This is intentional for simplicity — Redis would be needed at scale.
-- `users.json` and `.env` must be created manually on the server and are never committed to git.
+- `users.json`, `branches.json` and `.env` must be created manually on the server and are never committed to git.
 - Logs rotate automatically by month. Archive or delete old log files periodically to manage disk space.
