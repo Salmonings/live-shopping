@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import io from "socket.io-client";
+import { useCallDuration } from "./useCallDuration";
 
 type Branch = {
   id: string;
@@ -39,6 +40,7 @@ export default function CustomerPage() {
   const [screen, setScreen] = useState<"form" | "queue" | "waiting" | "call">(
     "form",
   );
+  const [callStartedAt, setCallStartedAt] = useState<number | null>(null);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [selectedBranchId, setSelectedBranchId] = useState("auto");
   const [showWhatsapp, setShowWhatsapp] = useState(false);
@@ -67,6 +69,7 @@ export default function CustomerPage() {
   });
   const partnerIdRef = useRef<string | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const duration = useCallDuration(callStartedAt);
 
   const showToast = (msg: string) => {
     setToast(msg);
@@ -131,8 +134,9 @@ export default function CustomerPage() {
     socket.on("matched", () => {
       setScreen("waiting");
     });
-    socket.on("call-accepted", (partnerId: string) => {
+    socket.on("call-accepted", ({ partnerId, callStartedAt }: { partnerId: string; callStartedAt: number }) => {
       setScreen("call");
+      setCallStartedAt(callStartedAt);
       startCall(partnerId);
     });
     socket.on("signal", async ({ signal }: { signal: any }) => {
@@ -161,6 +165,7 @@ export default function CustomerPage() {
       cleanup();
       showToast("Order taker disconnected");
       setScreen("form");
+      setCallStartedAt(null);
     });
     return () => {
       socket.disconnect();
@@ -252,6 +257,11 @@ export default function CustomerPage() {
             <span className="btn-icon">✕</span>
             End Call
           </button>
+          {duration && (
+            <div className="call-timer-pill">
+              ⏱ {duration}
+            </div>
+          )}
         </div>
 
         {toast && <div className="toast">{toast}</div>}

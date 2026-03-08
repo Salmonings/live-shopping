@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { use, useCallback, useEffect, useRef, useState } from "react";
 import io from "socket.io-client";
+import { useCallDuration } from "../useCallDuration";
 
 type Branch = { id: string; name: string };
 type CustomerDetails = { name: string; phone?: string; address: string };
@@ -29,6 +30,7 @@ export default function OrderTaker() {
   const [stats, setStats] = useState<{
     byBranch: Record<string, { waiting: number; inCall: number }>;
   } | null>(null);
+const [callStartedAt, setCallStartedAt] = useState<number | null>(null);
   const [showRingtonePrompt, setShowRingtonePrompt] = useState(false);
   const [toast, setToast] = useState("");
 
@@ -43,6 +45,7 @@ export default function OrderTaker() {
   const audioRef = useRef<HTMLAudioElement>(null);
   const ringtoneRef = useRef<HTMLAudioElement>(null);
   const customerDetailsRef = useRef<CustomerDetails | null>(null);
+  const duration = useCallDuration(callStartedAt);
 
   const showToast = (msg: string) => {
     setToast(msg);
@@ -74,6 +77,7 @@ export default function OrderTaker() {
       setCustomerDetails(null);
       setIsMuted(false);
       setCameraOn(true);
+      setCallStartedAt(null);
       if (stayAvailable && socketRef.current) {
         socketRef.current.emit("order-taker-ready", { branchId });
         setAvailable(true);
@@ -165,6 +169,9 @@ export default function OrderTaker() {
           await pc.addIceCandidate(signal.ice);
         } catch (_) {}
       }
+    });
+    socket.on("call-started", ({ callStartedAt }: { callStartedAt: number }) => {
+      setCallStartedAt(callStartedAt);
     });
     socket.on("partner-disconnected", () => {
       stopRingtone();
@@ -318,6 +325,11 @@ export default function OrderTaker() {
                   📍 {customerDetails.address}
                 </span>
               </>
+            )}
+            {duration && (
+              <div className="call-timer-pill">
+                ⏱ {duration}
+              </div>
             )}
           </div>
         )}

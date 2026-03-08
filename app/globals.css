@@ -986,3 +986,24 @@ button.btn-red {
   transform: none;
   box-shadow: none;
 }
+
+/* ── Call timer pill ─────────────────────────────────────────────────────── */
+
+.call-timer-pill {
+  position: fixed;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 999px;
+  padding: 6px 16px;
+  color: white;
+  font-size: 14px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  z-index: 21;
+  pointer-events: none;
+}

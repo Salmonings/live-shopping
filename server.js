@@ -195,6 +195,7 @@ app.prepare().then(() => {
   const previousCustomerByTaker = new Map(); // takerSocketId → { name, address }
   const managerWatchers = new Set(); // socketIds subscribed to monitor updates
   const rateBuckets = new Map(); // rateLimit key → { count, resetAt }
+  const callStartTimes = new Map(); // socketId → timestamp of when current call started (for monitor display)
 
   // ─── Broadcast helpers ──────────────────────────────────────────────────────
 
@@ -255,6 +256,7 @@ app.prepare().then(() => {
           : takers_in_branch.includes(socketId)
             ? "available"
             : "not_available",
+        callStartedAt: partnerId ? callStartTimes.get(socketId) ?? null : null,
         currentCustomer: partnerId
           ? customerInfo.get(partnerId) || { name: "", phone: "", address: "" }
           : { name: "", phone: "", address: "" },
@@ -302,6 +304,8 @@ app.prepare().then(() => {
     delete pairs[socketId];
     delete pairBranch[partner];
     delete pairBranch[socketId];
+    callStartTimes.delete(socketId);
+    callStartTimes.delete(partner);
   }
 
   // Match the next waiting customer with the next available order taker
@@ -530,7 +534,12 @@ app.prepare().then(() => {
       if (session?.role !== "order_taker") return;
       if (!data?.to || pairs[socket.id] !== data.to) return;
 
-      io.to(data.to).emit("call-accepted", socket.id);
+      const callStartedAt = Date.now();
+      callStartTimes.set(socket.id, callStartedAt);
+      callStartTimes.set(data.to, callStartedAt);
+
+      io.to(data.to).emit("call-accepted", { partnerId: socket.id, callStartedAt });
+      io.to(socket.id).emit("call-started", { callStartedAt });
       broadcastStats();
       broadcastMonitor();
     });
