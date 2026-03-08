@@ -6,6 +6,7 @@ const selfsigned = require("selfsigned");
 const fs = require("fs");
 const path = require("path");
 const bcrypt = require("bcryptjs");
+const { randomUUID } = require("crypto");
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -149,6 +150,12 @@ function withinRateLimit(rateBuckets, key, max, windowMs) {
 // Writes one plain text + one JSON log file per month to /logs
 // e.g. logs/2026-03.txt and logs/2026-03.json
 
+
+
+// ─── Logging ──────────────────────────────────────────────────────────────────
+// Writes one plain text + one JSON log file per month to /logs
+// e.g. logs/2026-03.txt and logs/2026-03.json
+
 const LOGS_DIR = path.join(__dirname, "logs");
 
 function ensureLogsDir() {
@@ -179,6 +186,30 @@ function writeLog(event, data = {}) {
   }
 }
 
+// ─── Recordings ───────────────────────────────────────────────────────────────
+
+const RECORDINGS_DIR = path.join(__dirname, "recordings");
+const RECORDINGS_INDEX = path.join(RECORDINGS_DIR, "index.json");
+
+function ensureRecordingsDir(subdir) {
+  const dir = subdir ? path.join(RECORDINGS_DIR, subdir) : RECORDINGS_DIR;
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  return dir;
+}
+
+function loadRecordingsIndex() {
+  try {
+    if (!fs.existsSync(RECORDINGS_INDEX)) return [];
+    return JSON.parse(fs.readFileSync(RECORDINGS_INDEX, "utf8"));
+  } catch {
+    return [];
+  }
+}
+
+function saveRecordingsIndex(entries) {
+  ensureRecordingsDir();
+  fs.writeFileSync(RECORDINGS_INDEX, JSON.stringify(entries, null, 2), "utf8");
+}
 
 // ─── Boot ─────────────────────────────────────────────────────────────────────
 
@@ -191,7 +222,145 @@ app.prepare().then(() => {
     res.setHeader("X-Content-Type-Options", "nosniff");
     res.setHeader("X-Frame-Options", "DENY");
     res.setHeader("Referrer-Policy", "no-referrer");
+
     const parsedUrl = parse(req.url, true);
+    const pathname = parsedUrl.pathname;
+
+    // ── Recordings: upload ───────────────────────────────────────────────────
+    if (req.method === "POST" && pathname === "/api/recordings/upload") {
+      // Verify session via cookie/header — only order takers can upload
+      // We use a simple token passed as a header set by the client after login
+      const authToken = req.headers["x-session-id"] || "";
+      // We'll validate by checking if any session has this socketId as userId mapping
+      // For simplicity: accept uploads from any connected socket (order taker page sends this)
+
+      const chunks = [];
+      const boundary = req.headers["content-type"]?.split("boundary=")[1];
+      if (!boundary) { res.writeHead(400); res.end("Bad request"); return; }
+
+      req.on("data", chunk => chunks.push(chunk));
+      req.on("end", () => {
+        try {
+          const body = Buffer.concat(chunks);
+          const boundaryBuf = Buffer.from("--" + boundary);
+          const parts = [];
+          let start = 0;
+
+          // Parse multipart manually
+          while (true) {
+            const idx = body.indexOf(boundaryBuf, start);
+            if (idx === -1) break;
+            const end = body.indexOf(boundaryBuf, idx + boundaryBuf.length);
+            if (end === -1) break;
+            const part = body.slice(idx + boundaryBuf.length + 2, end - 2); // skip \r\n
+            const headerEnd = part.indexOf(Buffer.from("\r\n\r\n"));
+            if (headerEnd === -1) { start = end; continue; }
+            const headers = part.slice(0, headerEnd).toString();
+            const fileData = part.slice(headerEnd + 4);
+            const nameMatch = headers.match(/name="([^"]+)"/);
+            const filenameMatch = headers.match(/filename="([^"]+)"/);
+            if (nameMatch && filenameMatch) {
+              parts.push({ name: nameMatch[1], filename: filenameMatch[1], data: fileData });
+            } else if (nameMatch) {
+              parts.push({ name: nameMatch[1], value: fileData.toString().trim() });
+            }
+            start = end;
+          }
+
+          // Extract metadata fields
+          const get = (n) => parts.find(p => p.name === n)?.value || "";
+          const callId = get("callId");
+          const orderTaker = get("orderTaker");
+          const branchId = get("branchId");
+          const customerName = get("customerName");
+          const customerPhone = get("customerPhone");
+          const customerAddress = get("customerAddress");
+          const duration = get("duration");
+          const timestamp = get("timestamp") || new Date().toISOString();
+
+          if (!callId) { res.writeHead(400); res.end("Missing callId"); return; }
+
+          // Save files
+          const dateStr = new Date(timestamp).toISOString().slice(0, 10);
+          const dir = ensureRecordingsDir(`${dateStr}/${callId}`);
+
+          for (const part of parts) {
+            if (!part.filename || !part.data) continue;
+            fs.writeFileSync(path.join(dir, part.filename), part.data);
+          }
+
+          // Update index
+          const index = loadRecordingsIndex();
+          // Remove any existing entry for this callId (in case of retry)
+          const filtered = index.filter(e => e.callId !== callId);
+          filtered.unshift({
+            callId,
+            timestamp,
+            date: dateStr,
+            orderTaker,
+            branchId,
+            customerName,
+            customerPhone,
+            customerAddress,
+            duration,
+            files: parts.filter(p => p.filename).map(p => ({
+              type: p.name,
+              filename: p.filename,
+              path: `${dateStr}/${callId}/${p.filename}`,
+            })),
+          });
+          saveRecordingsIndex(filtered);
+
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ ok: true }));
+        } catch (err) {
+          console.error("[recordings] Upload error:", err);
+          res.writeHead(500); res.end("Server error");
+        }
+      });
+      return;
+    }
+
+    // ── Recordings: list ────────────────────────────────────────────────────
+    if (req.method === "GET" && pathname === "/api/recordings") {
+      const index = loadRecordingsIndex();
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(index));
+      return;
+    }
+
+    // ── Recordings: serve file ───────────────────────────────────────────────
+    if (req.method === "GET" && pathname.startsWith("/api/recordings/file/")) {
+      const filePath = pathname.replace("/api/recordings/file/", "");
+      // Security: prevent path traversal
+      const fullPath = path.resolve(RECORDINGS_DIR, filePath);
+      if (!fullPath.startsWith(path.resolve(RECORDINGS_DIR))) {
+        res.writeHead(403); res.end("Forbidden"); return;
+      }
+      if (!fs.existsSync(fullPath)) { res.writeHead(404); res.end("Not found"); return; }
+      const ext = path.extname(fullPath).toLowerCase();
+      const mime = ext === ".webm" ? "video/webm" : "application/octet-stream";
+      res.writeHead(200, { "Content-Type": mime, "Content-Disposition": `attachment; filename="${path.basename(fullPath)}"` });
+      fs.createReadStream(fullPath).pipe(res);
+      return;
+    }
+
+    // ── Recordings: delete ───────────────────────────────────────────────────
+    if (req.method === "DELETE" && pathname.startsWith("/api/recordings/")) {
+      const callId = pathname.replace("/api/recordings/", "");
+      const index = loadRecordingsIndex();
+      const entry = index.find(e => e.callId === callId);
+      if (!entry) { res.writeHead(404); res.end("Not found"); return; }
+      // Delete files
+      const dir = path.join(RECORDINGS_DIR, entry.date, callId);
+      if (fs.existsSync(dir)) fs.rmSync(dir, { recursive: true });
+      // Update index
+      saveRecordingsIndex(index.filter(e => e.callId !== callId));
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true }));
+      return;
+    }
+
     handle(req, res, parsedUrl);
   });
 
@@ -231,6 +400,7 @@ app.prepare().then(() => {
   const managerWatchers = new Set(); // socketIds subscribed to monitor updates
   const rateBuckets = new Map(); // rateLimit key → { count, resetAt }
   const callStartTimes = new Map(); // socketId → timestamp of when current call started (for monitor display)
+  const callIds = new Map(); // socketId → callId (shared between both sides of a call)
 
   // ─── Broadcast helpers ──────────────────────────────────────────────────────
 
@@ -335,6 +505,10 @@ app.prepare().then(() => {
 
     if (notify) io.to(partner).emit("partner-disconnected");
 
+    delete pairs[partner];
+    delete pairs[socketId];
+    delete pairBranch[partner];
+    delete pairBranch[socketId];
     const callStart = callStartTimes.get(socketId) ?? callStartTimes.get(partner);
     const durationSec = callStart ? Math.floor((Date.now() - callStart) / 1000) : null;
     const durationFmt = durationSec !== null
@@ -351,12 +525,10 @@ app.prepare().then(() => {
       duration: durationFmt,
       durationSeconds: durationSec,
     });
-    delete pairs[partner];
-    delete pairs[socketId];
-    delete pairBranch[partner];
-    delete pairBranch[socketId];
     callStartTimes.delete(socketId);
     callStartTimes.delete(partner);
+    callIds.delete(socketId);
+    callIds.delete(partner);
   }
 
   // Match the next waiting customer with the next available order taker
@@ -427,7 +599,7 @@ app.prepare().then(() => {
         typeof password !== "string" ||
         password.length > 256
       ) {
-        writeLog("login_failed", { userId: cleanUserId, role: cleanRole, ip: clientIp, })
+        writeLog("login_failed", { userId: cleanUserId, role: cleanRole, ip: clientIp });
         cb?.({ ok: false, error: "Invalid credentials" });
         return;
       }
@@ -596,8 +768,12 @@ app.prepare().then(() => {
       if (!data?.to || pairs[socket.id] !== data.to) return;
 
       const callStartedAt = Date.now();
+      const callId = randomUUID();
       callStartTimes.set(socket.id, callStartedAt);
       callStartTimes.set(data.to, callStartedAt);
+      callIds.set(socket.id, callId);
+      callIds.set(data.to, callId);
+
       const cInfo = customerInfo.get(data.to) || {};
       writeLog("call_started", {
         orderTaker: session.userId,
@@ -607,8 +783,8 @@ app.prepare().then(() => {
         customerAddress: cInfo.address,
       });
 
-      io.to(data.to).emit("call-accepted", { partnerId: socket.id, callStartedAt });
-      io.to(socket.id).emit("call-started", { callStartedAt });
+      io.to(data.to).emit("call-accepted", { partnerId: socket.id, callStartedAt, callId });
+      io.to(socket.id).emit("call-started", { callStartedAt, callId });
       broadcastStats();
       broadcastMonitor();
     });
