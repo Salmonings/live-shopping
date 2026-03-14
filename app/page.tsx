@@ -60,6 +60,7 @@ export default function CustomerPage() {
   const [isMuted, setIsMuted] = useState(false);
   const [joining, setJoining] = useState(false);
   const [toast, setToast] = useState("");
+  const [browserWarning, setBrowserWarning] = useState(false);
   const [stats, setStats] = useState<{
     totalInCall: number;
     byBranch: Record<string, { waiting: number; inCall: number }>;
@@ -94,6 +95,16 @@ export default function CustomerPage() {
       () => setLocationStatus("denied"),
       { timeout: 8000 },
     );
+  }, []);
+  useEffect(() => {
+    const ua = navigator.userAgent;
+    const isChrome = /Chrome/.test(ua) && !/Edg|OPR/.test(ua);
+    const isSafari = /Safari/.test(ua) && !/Chrome/.test(ua);
+    const isFirefox = /Firefox/.test(ua);
+    const isEdge = /Edg/.test(ua);
+    const isSamsung = /SamsungBrowser/.test(ua);
+    if (!isChrome && !isSafari && !isFirefox && !isEdge && !isSamsung)
+      setBrowserWarning(true);
   }, []);
 
   useEffect(() => {
@@ -289,11 +300,17 @@ export default function CustomerPage() {
   return (
     <main>
       {toast && <div className="toast">{toast}</div>}
-      <h1>🛒 Supermarket Ordering</h1>
+      <h1>🛒 BESTWAY Supermarket Ordering</h1>
 
       {/* Form */}
       {screen === "form" && (
         <div className="card">
+          {browserWarning && (
+            <div className="browser-warning">
+              ⚠️ This app works best in Chrome, Safari, Firefox, Edge, or Samsung Internet.
+            </div>
+          )}
+
           <div className="field">
             <label>
               Branch
