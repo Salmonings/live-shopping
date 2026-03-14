@@ -116,6 +116,11 @@ export default function CustomerPage() {
     pc.ontrack = (e) => {
       if (videoRef.current) videoRef.current.srcObject = e.streams[0];
     };
+    if (audioStreamRef.current) {
+      audioStreamRef.current
+        .getTracks()
+        .forEach((t) => pc.addTrack(t, audioStreamRef.current!));
+    }
     peerRef.current = pc;
   }, []);
 
@@ -156,9 +161,6 @@ export default function CustomerPage() {
       if (!pc || pc.signalingState === "closed") return;
       if (signal.offer) {
         await pc.setRemoteDescription(signal.offer);
-        audioStreamRef.current
-          ?.getTracks()
-          .forEach((t) => pc.addTrack(t, audioStreamRef.current!));
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
         socketRef.current?.emit("signal", {
