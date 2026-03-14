@@ -1,5 +1,6 @@
 process.env.TURBOPACK = "0";
-const { createServer } = require("https");
+const { createServer: createHttpsServer } = require("https");
+const { createServer: createHttpServer } = require("http");
 const { parse } = require("url");
 const next = require("next");
 const selfsigned = require("selfsigned");
@@ -150,8 +151,6 @@ function withinRateLimit(rateBuckets, key, max, windowMs) {
 // Writes one plain text + one JSON log file per month to /logs
 // e.g. logs/2026-03.txt and logs/2026-03.json
 
-
-
 // ─── Logging ──────────────────────────────────────────────────────────────────
 // Writes one plain text + one JSON log file per month to /logs
 // e.g. logs/2026-03.txt and logs/2026-03.json
@@ -180,7 +179,11 @@ function writeLog(event, data = {}) {
       if (v !== undefined && v !== null && v !== "") parts.push(`${k}=${v}`);
     }
     fs.appendFileSync(`${prefix}.txt`, parts.join("  ") + "\n", "utf8");
-    fs.appendFileSync(`${prefix}.json`, JSON.stringify({ ts, event, ...data }) + "\n", "utf8");
+    fs.appendFileSync(
+      `${prefix}.json`,
+      JSON.stringify({ ts, event, ...data }) + "\n",
+      "utf8",
+    );
   } catch (err) {
     console.error("[log] Failed to write log:", err.message);
   }
@@ -214,11 +217,8 @@ function saveRecordingsIndex(entries) {
 // ─── Boot ─────────────────────────────────────────────────────────────────────
 
 app.prepare().then(() => {
-  // FIX: getHttpsOptions() was defined but never called — server crashed with
-  // "ReferenceError: options is not defined". Fixed by calling it here.
-  const options = getHttpsOptions();
-
-  const server = createServer(options, (req, res) => {
+  const behindProxy = process.env.BEHIND_PROXY === "true";
+  const requestHandler = (req, res) => {
     res.setHeader("X-Content-Type-Options", "nosniff");
     res.setHeader("X-Frame-Options", "DENY");
     res.setHeader("Referrer-Policy", "no-referrer");
@@ -236,9 +236,13 @@ app.prepare().then(() => {
 
       const chunks = [];
       const boundary = req.headers["content-type"]?.split("boundary=")[1];
-      if (!boundary) { res.writeHead(400); res.end("Bad request"); return; }
+      if (!boundary) {
+        res.writeHead(400);
+        res.end("Bad request");
+        return;
+      }
 
-      req.on("data", chunk => chunks.push(chunk));
+      req.on("data", (chunk) => chunks.push(chunk));
       req.on("end", () => {
         try {
           const body = Buffer.concat(chunks);
@@ -254,21 +258,31 @@ app.prepare().then(() => {
             if (end === -1) break;
             const part = body.slice(idx + boundaryBuf.length + 2, end - 2); // skip \r\n
             const headerEnd = part.indexOf(Buffer.from("\r\n\r\n"));
-            if (headerEnd === -1) { start = end; continue; }
+            if (headerEnd === -1) {
+              start = end;
+              continue;
+            }
             const headers = part.slice(0, headerEnd).toString();
             const fileData = part.slice(headerEnd + 4);
             const nameMatch = headers.match(/name="([^"]+)"/);
             const filenameMatch = headers.match(/filename="([^"]+)"/);
             if (nameMatch && filenameMatch) {
-              parts.push({ name: nameMatch[1], filename: filenameMatch[1], data: fileData });
+              parts.push({
+                name: nameMatch[1],
+                filename: filenameMatch[1],
+                data: fileData,
+              });
             } else if (nameMatch) {
-              parts.push({ name: nameMatch[1], value: fileData.toString().trim() });
+              parts.push({
+                name: nameMatch[1],
+                value: fileData.toString().trim(),
+              });
             }
             start = end;
           }
 
           // Extract metadata fields
-          const get = (n) => parts.find(p => p.name === n)?.value || "";
+          const get = (n) => parts.find((p) => p.name === n)?.value || "";
           const callId = get("callId");
           const orderTaker = get("orderTaker");
           const branchId = get("branchId");
@@ -278,7 +292,11 @@ app.prepare().then(() => {
           const duration = get("duration");
           const timestamp = get("timestamp") || new Date().toISOString();
 
-          if (!callId) { res.writeHead(400); res.end("Missing callId"); return; }
+          if (!callId) {
+            res.writeHead(400);
+            res.end("Missing callId");
+            return;
+          }
 
           // Save files
           const dateStr = new Date(timestamp).toISOString().slice(0, 10);
@@ -292,7 +310,7 @@ app.prepare().then(() => {
           // Update index
           const index = loadRecordingsIndex();
           // Remove any existing entry for this callId (in case of retry)
-          const filtered = index.filter(e => e.callId !== callId);
+          const filtered = index.filter((e) => e.callId !== callId);
           filtered.unshift({
             callId,
             timestamp,
@@ -303,11 +321,13 @@ app.prepare().then(() => {
             customerPhone,
             customerAddress,
             duration,
-            files: parts.filter(p => p.filename).map(p => ({
-              type: p.name,
-              filename: p.filename,
-              path: `${dateStr}/${callId}/${p.filename}`,
-            })),
+            files: parts
+              .filter((p) => p.filename)
+              .map((p) => ({
+                type: p.name,
+                filename: p.filename,
+                path: `${dateStr}/${callId}/${p.filename}`,
+              })),
           });
           saveRecordingsIndex(filtered);
 
@@ -315,7 +335,8 @@ app.prepare().then(() => {
           res.end(JSON.stringify({ ok: true }));
         } catch (err) {
           console.error("[recordings] Upload error:", err);
-          res.writeHead(500); res.end("Server error");
+          res.writeHead(500);
+          res.end("Server error");
         }
       });
       return;
@@ -335,12 +356,21 @@ app.prepare().then(() => {
       // Security: prevent path traversal
       const fullPath = path.resolve(RECORDINGS_DIR, filePath);
       if (!fullPath.startsWith(path.resolve(RECORDINGS_DIR))) {
-        res.writeHead(403); res.end("Forbidden"); return;
+        res.writeHead(403);
+        res.end("Forbidden");
+        return;
       }
-      if (!fs.existsSync(fullPath)) { res.writeHead(404); res.end("Not found"); return; }
+      if (!fs.existsSync(fullPath)) {
+        res.writeHead(404);
+        res.end("Not found");
+        return;
+      }
       const ext = path.extname(fullPath).toLowerCase();
       const mime = ext === ".webm" ? "video/webm" : "application/octet-stream";
-      res.writeHead(200, { "Content-Type": mime, "Content-Disposition": `attachment; filename="${path.basename(fullPath)}"` });
+      res.writeHead(200, {
+        "Content-Type": mime,
+        "Content-Disposition": `attachment; filename="${path.basename(fullPath)}"`,
+      });
       fs.createReadStream(fullPath).pipe(res);
       return;
     }
@@ -349,23 +379,30 @@ app.prepare().then(() => {
     if (req.method === "DELETE" && pathname.startsWith("/api/recordings/")) {
       const callId = pathname.replace("/api/recordings/", "");
       const index = loadRecordingsIndex();
-      const entry = index.find(e => e.callId === callId);
-      if (!entry) { res.writeHead(404); res.end("Not found"); return; }
+      const entry = index.find((e) => e.callId === callId);
+      if (!entry) {
+        res.writeHead(404);
+        res.end("Not found");
+        return;
+      }
       // Delete files
       const dir = path.join(RECORDINGS_DIR, entry.date, callId);
       if (fs.existsSync(dir)) fs.rmSync(dir, { recursive: true });
       // Update index
-      saveRecordingsIndex(index.filter(e => e.callId !== callId));
+      saveRecordingsIndex(index.filter((e) => e.callId !== callId));
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ ok: true }));
       return;
     }
 
     handle(req, res, parsedUrl);
-  });
+  };
 
+  const server = behindProxy
+    ? createHttpServer(requestHandler)
+    : createHttpsServer(getHttpsOptions(), requestHandler);
   // Parse allowed origins from env — comma separated list
-  // e.g. ALLOWED_ORIGINS=https://order.bestwaysupermarket.com,https://admin.bestwaysupermarket.com
+  // e.g. ALLOWED_ORIGINS=https://order.bestwaysupermarket.com
   const allowedOrigins = (process.env.ALLOWED_ORIGINS || "")
     .split(",")
     .map((v) => v.trim())
@@ -461,7 +498,9 @@ app.prepare().then(() => {
           : takers_in_branch.includes(socketId)
             ? "available"
             : "not_available",
-        callStartedAt: partnerId ? callStartTimes.get(socketId) ?? null : null,
+        callStartedAt: partnerId
+          ? (callStartTimes.get(socketId) ?? null)
+          : null,
         currentCustomer: partnerId
           ? customerInfo.get(partnerId) || { name: "", phone: "", address: "" }
           : { name: "", phone: "", address: "" },
@@ -509,12 +548,17 @@ app.prepare().then(() => {
     delete pairs[socketId];
     delete pairBranch[partner];
     delete pairBranch[socketId];
-    const callStart = callStartTimes.get(socketId) ?? callStartTimes.get(partner);
-    const durationSec = callStart ? Math.floor((Date.now() - callStart) / 1000) : null;
-    const durationFmt = durationSec !== null
-      ? `${Math.floor(durationSec / 60)}:${String(durationSec % 60).padStart(2, "0")}`
-      : "unknown";
-    const takerSess = socketSession?.role === "order_taker" ? socketSession : partnerSession;
+    const callStart =
+      callStartTimes.get(socketId) ?? callStartTimes.get(partner);
+    const durationSec = callStart
+      ? Math.floor((Date.now() - callStart) / 1000)
+      : null;
+    const durationFmt =
+      durationSec !== null
+        ? `${Math.floor(durationSec / 60)}:${String(durationSec % 60).padStart(2, "0")}`
+        : "unknown";
+    const takerSess =
+      socketSession?.role === "order_taker" ? socketSession : partnerSession;
     const custId = socketSession?.role === "customer" ? socketId : partner;
     const cust = customerInfo.get(custId) || {};
     writeLog("call_ended", {
@@ -599,7 +643,11 @@ app.prepare().then(() => {
         typeof password !== "string" ||
         password.length > 256
       ) {
-        writeLog("login_failed", { userId: cleanUserId, role: cleanRole, ip: clientIp });
+        writeLog("login_failed", {
+          userId: cleanUserId,
+          role: cleanRole,
+          ip: clientIp,
+        });
         cb?.({ ok: false, error: "Invalid credentials" });
         return;
       }
@@ -609,7 +657,8 @@ app.prepare().then(() => {
       }
       if (
         cleanRole === "order_taker" &&
-        branchId && !getBranch(branches, branchId)
+        branchId &&
+        !getBranch(branches, branchId)
       ) {
         cb?.({ ok: false, error: "Invalid branch" });
         return;
@@ -641,7 +690,10 @@ app.prepare().then(() => {
         (s) => s.userId === cleanUserId && s.role === cleanRole,
       );
       if (alreadyLoggedIn) {
-        cb?.({ ok: false, error: "This account is already logged in elsewhere." });
+        cb?.({
+          ok: false,
+          error: "This account is already logged in elsewhere.",
+        });
         return;
       }
 
@@ -651,7 +703,11 @@ app.prepare().then(() => {
         branchId: branchId || null,
       };
       sessions.set(socket.id, sessionData);
-      writeLog("login_success", { userId: cleanUserId, role: cleanRole, branchId: branchId || null });
+      writeLog("login_success", {
+        userId: cleanUserId,
+        role: cleanRole,
+        branchId: branchId || null,
+      });
       cb?.({ ok: true, session: sessionData });
 
       broadcastStats();
@@ -740,7 +796,10 @@ app.prepare().then(() => {
     socket.on("order-taker-not-available", () => {
       const session = sessions.get(socket.id);
       if (!session || session.role !== "order_taker") return;
-      writeLog("order_taker_offline", { userId: session.userId, branchId: session.branchId });
+      writeLog("order_taker_offline", {
+        userId: session.userId,
+        branchId: session.branchId,
+      });
       removeFromAllBranches(orderTakersByBranch, socket.id);
       broadcastStats();
       broadcastMonitor();
@@ -792,7 +851,11 @@ app.prepare().then(() => {
         customerAddress: cInfo.address,
       });
 
-      io.to(data.to).emit("call-accepted", { partnerId: socket.id, callStartedAt, callId });
+      io.to(data.to).emit("call-accepted", {
+        partnerId: socket.id,
+        callStartedAt,
+        callId,
+      });
       io.to(socket.id).emit("call-started", { callStartedAt, callId });
       broadcastStats();
       broadcastMonitor();
@@ -811,7 +874,10 @@ app.prepare().then(() => {
       console.log(`[socket] disconnected: ${socket.id}`);
       const discSession = sessions.get(socket.id);
       if (discSession?.role === "order_taker") {
-        writeLog("order_taker_logout", { userId: discSession.userId, branchId: discSession.branchId });
+        writeLog("order_taker_logout", {
+          userId: discSession.userId,
+          branchId: discSession.branchId,
+        });
       }
 
       removeFromAllBranches(queueByBranch, socket.id);
