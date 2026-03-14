@@ -444,7 +444,7 @@ button.btn-red {
 
 .dashboard {
   min-height: 100vh;
-  background: #1A1A1A;
+  background: #1a1a1a;
   color: #f1f5f9;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
@@ -532,7 +532,7 @@ button.btn-red {
 
 .dashboard-tab.active {
   border-color: #1a1a1a;
-  background: #1A1A1A;
+  background: #1a1a1a;
   color: white;
   font-weight: 600;
 }
@@ -840,11 +840,11 @@ button.btn-red {
 .wa-bubble {
   position: fixed;
   bottom: 24px;
-  right : 24px;
-  width : 56px;
+  right: 24px;
+  width: 56px;
   height: 56px;
   border-radius: 50%;
-  background: #25D366;
+  background: #25d366;
   border: none;
   box-shadow: 0 4px 20px rgba(37, 211, 102, 0.5);
   cursor: pointer;
@@ -854,7 +854,9 @@ button.btn-red {
   z-index: 200;
   margin: 0;
   padding: 0;
-  transition: transform 0.15s, box-shadow 0.15s;
+  transition:
+    transform 0.15s,
+    box-shadow 0.15s;
 }
 
 .wa-bubble:hover {
@@ -878,14 +880,14 @@ button.btn-red {
   padding: 10px 14px;
   border-radius: 12px;
   max-width: 200px;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
   z-index: 199;
   line-height: 1.4;
   cursor: pointer;
 }
 
 .wa-tooltip::after {
-  content: '';
+  content: "";
   position: absolute;
   bottom: -8px;
   right: 20px;
@@ -904,14 +906,20 @@ button.btn-red {
   border-radius: 16px;
   padding: 20px;
   width: 280px;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
   z-index: 200;
   animation: slideUp 0.2s ease;
 }
 
 @keyframes slideUp {
-  from { opacity: 0; transform: translateY(10px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .wa-panel-title {
@@ -1027,8 +1035,13 @@ button.btn-red {
 }
 
 @keyframes recPulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.6; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
 }
 
 /* ── Recording notice on customer page ───────────────────────────────────── */
@@ -1069,7 +1082,9 @@ button.btn-red {
   width: auto;
   margin-top: 0;
   box-shadow: none;
-  transition: background 0.15s, color 0.15s;
+  transition:
+    background 0.15s,
+    color 0.15s;
 }
 
 .main-tab:hover {
@@ -1159,20 +1174,56 @@ button.btn-red {
   color: #e2e8f0;
 }
 
-.recordings-table tr:last-child td { border-bottom: none; }
-.recordings-table tr:hover td { background: #1a1a2e; }
+.recordings-table tr:last-child td {
+  border-bottom: none;
+}
+.recordings-table tr:hover td {
+  background: #1a1a2e;
+}
 
-.rec-date { font-size: 13px; font-weight: 600; color: #e2e8f0; white-space: nowrap; }
-.rec-time { font-size: 12px; color: #4b5563; margin-top: 2px; }
-.rec-taker { font-weight: 600; color: #a78bfa; white-space: nowrap; }
-.rec-branch { color: #64748b; white-space: nowrap; }
-.rec-customer-name { font-weight: 600; color: #e2e8f0; }
-.rec-customer-sub { font-size: 12px; color: #4b5563; margin-top: 2px; }
-.rec-duration { font-weight: 600; color: #22c55e; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.rec-date {
+  font-size: 13px;
+  font-weight: 600;
+  color: #e2e8f0;
+  white-space: nowrap;
+}
+.rec-time {
+  font-size: 12px;
+  color: #4b5563;
+  margin-top: 2px;
+}
+.rec-taker {
+  font-weight: 600;
+  color: #a78bfa;
+  white-space: nowrap;
+}
+.rec-branch {
+  color: #64748b;
+  white-space: nowrap;
+}
+.rec-customer-name {
+  font-weight: 600;
+  color: #e2e8f0;
+}
+.rec-customer-sub {
+  font-size: 12px;
+  color: #4b5563;
+  margin-top: 2px;
+}
+.rec-duration {
+  font-weight: 600;
+  color: #22c55e;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
 
 /* ── Recording file buttons ──────────────────────────────────────────────── */
 
-.rec-file-btns { display: flex; flex-direction: column; gap: 5px; }
+.rec-file-btns {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
 
 .rec-file-btn {
   display: inline-flex;
@@ -1186,43 +1237,150 @@ button.btn-red {
   white-space: nowrap;
   transition: opacity 0.15s;
 }
-.rec-file-btn:hover { opacity: 0.8; }
-.rec-file-btn.combined { background: rgba(99,102,241,0.15); color: #818cf8; border: 1px solid rgba(99,102,241,0.25); }
-.rec-file-btn.ordertaker { background: rgba(59,130,246,0.12); color: #60a5fa; border: 1px solid rgba(59,130,246,0.2); }
-.rec-file-btn.customer { background: rgba(34,197,94,0.1); color: #4ade80; border: 1px solid rgba(34,197,94,0.2); }
+.rec-file-btn:hover {
+  opacity: 0.8;
+}
+.rec-file-btn.combined {
+  background: rgba(99, 102, 241, 0.15);
+  color: #818cf8;
+  border: 1px solid rgba(99, 102, 241, 0.25);
+}
+.rec-file-btn.ordertaker {
+  background: rgba(59, 130, 246, 0.12);
+  color: #60a5fa;
+  border: 1px solid rgba(59, 130, 246, 0.2);
+}
+.rec-file-btn.customer {
+  background: rgba(34, 197, 94, 0.1);
+  color: #4ade80;
+  border: 1px solid rgba(34, 197, 94, 0.2);
+}
 
 /* ── Recordings player ───────────────────────────────────────────────────── */
 
-.rec-player-wrap { margin-top: 8px; }
+.rec-player-wrap {
+  margin-top: 8px;
+}
 .rec-close-player {
-  background: #252538; color: #94a3b8; border: none; border-radius: 6px;
-  padding: 4px 10px; font-size: 12px; cursor: pointer; margin-top: 6px;
-  width: auto; box-shadow: none;
+  background: #252538;
+  color: #94a3b8;
+  border: none;
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  margin-top: 6px;
+  width: auto;
+  box-shadow: none;
 }
 
 /* ── Row action buttons ──────────────────────────────────────────────────── */
 
-.rec-actions { display: flex; flex-direction: column; gap: 5px; align-items: center; }
+.rec-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  align-items: center;
+}
 
 .rec-action-btn {
-  width: 32px; height: 32px; border-radius: 8px;
-  border: 1px solid #252538; background: #1a1a2e;
-  cursor: pointer; font-size: 14px;
-  display: flex; align-items: center; justify-content: center;
-  padding: 0; margin: 0; box-shadow: none; transition: background 0.15s;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid #252538;
+  background: #1a1a2e;
+  cursor: pointer;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  margin: 0;
+  box-shadow: none;
+  transition: background 0.15s;
 }
-.rec-action-btn:hover:not(:disabled) { transform: none; box-shadow: none; }
-.rec-action-btn.play:hover { background: rgba(99,102,241,0.2); }
-.rec-action-btn.delete:hover { background: rgba(220,38,38,0.2); }
-.rec-action-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.rec-action-btn:hover:not(:disabled) {
+  transform: none;
+  box-shadow: none;
+}
+.rec-action-btn.play:hover {
+  background: rgba(99, 102, 241, 0.2);
+}
+.rec-action-btn.delete:hover {
+  background: rgba(220, 38, 38, 0.2);
+}
+.rec-action-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
 
-.browser-warning {
-  background: rgba(234, 179, 8, 0.15);
-  border: 1px solid rgba(234, 179, 8, 0.4);
-  border-radius: 10px;
-  padding: 12px 14px;
+/* ── Online taker count pill (customer page) ─────────────────────────────── */
+
+.taker-count-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  padding: 6px 14px;
   font-size: 13px;
-  color: rgba(255, 255, 255, 0.9);
-  margin-bottom: 16px;
-  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.6);
+  margin-bottom: 8px;
+}
+
+.taker-count-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #4b5563;
+  flex-shrink: 0;
+}
+
+.taker-count-dot.active {
+  background: #22c55e;
+  box-shadow: 0 0 6px rgba(34, 197, 94, 0.6);
+  animation: dotPulse 2s ease-in-out infinite;
+}
+
+@keyframes dotPulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* ── Arabic bilingual support ────────────────────────────────────────────── */
+
+@import url("https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap");
+
+.ar {
+  font-family: "Cairo", "Segoe UI", Tahoma, Arial, sans-serif;
+  direction: rtl;
+  unicode-bidi: embed;
+  font-size: 0.9em;
+  opacity: 0.85;
+}
+
+/* Buttons with two lines of text */
+button .ar,
+.btn-green .ar,
+.btn-red .ar,
+.btn-ghost .ar {
+  font-size: 0.85em;
+  display: block;
+  margin-top: 1px;
+}
+
+/* Labels */
+label .ar {
+  font-size: 1em;
+}
+
+/* Taker section labels */
+.taker-section-label .ar {
+  font-size: 1em;
 }
