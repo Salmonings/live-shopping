@@ -33,11 +33,6 @@ if (!['order_taker', 'manager'].includes(role)) {
   process.exit(1)
 }
 
-if (role === 'order_taker' && !branchId) {
-  console.error('order_taker requires a branchId argument')
-  console.error('Example: node create-user.js ahmed secret123 order_taker cairo-branch')
-  process.exit(1)
-}
 
 if (password.length < 8) {
   console.error('Password must be at least 8 characters')
