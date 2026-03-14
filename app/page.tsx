@@ -368,11 +368,11 @@ export default function CustomerPage() {
       {/* Queue */}
       {screen === "queue" && (
         <div className="card" style={{ textAlign: "center" }}>
-          <p>⏳ You're in the queue</p>
+          <p>⏳ You&apos;re in the queue</p>
           <div className="queue-position">{queuePosition}</div>
           <p style={{ marginBottom: 24 }}>
             {queuePosition === 0
-              ? "You're next!"
+              ? "You&apos;re next!"
               : `${queuePosition === 1 ? "person" : "people"} ahead of you`}
           </p>
           {(() => {
