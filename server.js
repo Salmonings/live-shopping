@@ -61,6 +61,7 @@ function getIceConfig() {
 
   // Only add TURN if configured — in dev you can skip it
   if (process.env.TURN_URL && process.env.TURN_USER && process.env.TURN_PASS) {
+    console.log("[ice] TURN configured:", process.env.TURN_URL);
     // UDP (fastest, try first)
     iceServers.push({
       urls: process.env.TURN_URL,
