@@ -103,7 +103,12 @@ export default function CustomerPage() {
     const isFirefox = /Firefox/.test(ua);
     const isEdge = /Edg/.test(ua);
     const isSamsung = /SamsungBrowser/.test(ua);
-    if (!isChrome && !isSafari && !isFirefox && !isEdge && !isSamsung)
+    const hasWebRTC = !!(
+      window.RTCPeerConnection &&
+      navigator.mediaDevices?.getUserMedia
+    );
+
+    if (!hasWebRTC || !isChrome && !isSafari && !isFirefox && !isEdge && !isSamsung)
       setBrowserWarning(true);
   }, []);
 
