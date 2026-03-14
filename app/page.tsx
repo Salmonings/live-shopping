@@ -12,6 +12,87 @@ type Branch = {
   whatsapp?: string;
 };
 
+const t = {
+  title: {
+    en: "🛒 BESTWAY Supermarket Ordering",
+    ar: "طلب من بيست واي سوبر ماركت 🛒",
+  },
+  branch: { en: "Branch", ar: "الفرع" },
+  detecting: { en: "· detecting...", ar: "· جارٍ التحديد..." },
+  closest: { en: "· closest selected", ar: "· تم اختيار الأقرب" },
+  auto: { en: "📍 Auto (closest)", ar: "📍 تلقائي (الأقرب)" },
+  yourName: { en: "Your Name", ar: "اسمك" },
+  namePlaceholder: { en: "e.g. Ahmed Hassan", ar: "مثال: أحمد حسن" },
+  phone: { en: "Phone Number", ar: "رقم الهاتف" },
+  phonePlaceholder: { en: "e.g. 01012345678", ar: "مثال: 01012345678" },
+  address: { en: "Delivery Address", ar: "عنوان التوصيل" },
+  addressPlaceholder: {
+    en: "e.g. 12 Nile St, Cairo",
+    ar: "مثال: 12 شارع النيل، القاهرة",
+  },
+  recording: {
+    en: "🎙️ This call may be recorded for quality and training purposes.",
+    ar: "🎙️ قد يتم تسجيل هذه المكالمة لأغراض الجودة والتدريب.",
+  },
+  placeCall: { en: "Place Call", ar: "تقديم الطلب" },
+  connecting: { en: "Connecting...", ar: "جارٍ الاتصال..." },
+  takersOnline: {
+    en: (n: number) => `${n} order taker${n !== 1 ? "s" : ""} online`,
+    ar: (n: number) => `${n} موظف${n !== 1 ? "ون" : ""} متاح`,
+  },
+  noTakers: {
+    en: "No order takers online right now",
+    ar: "لا يوجد موظفون متاحون الآن",
+  },
+  inQueue: { en: "⏳ You're in the queue", ar: "⏳ أنت في قائمة الانتظار" },
+  youreNext: { en: "You're next!", ar: "أنت التالي!" },
+  ahead: {
+    en: (n: number) => `${n} ${n === 1 ? "person" : "people"} ahead of you`,
+    ar: (n: number) => `${n} ${n === 1 ? "شخص" : "أشخاص"} أمامك`,
+  },
+  leaveQueue: { en: "Leave Queue", ar: "مغادرة القائمة" },
+  ringing: { en: "Ringing order taker...", ar: "جارٍ الاتصال بالموظف..." },
+  pleaseWait: {
+    en: "Please wait, someone will answer shortly",
+    ar: "يرجى الانتظار، سيرد عليك أحد قريباً",
+  },
+  cancel: { en: "Cancel", ar: "إلغاء" },
+  unmute: { en: "Unmute", ar: "إلغاء كتم الصوت" },
+  mute: { en: "Mute", ar: "كتم الصوت" },
+  endCall: { en: "End Call", ar: "إنهاء المكالمة" },
+  disconnected: { en: "Order taker disconnected", ar: "انقطع اتصال الموظف" },
+  micRequired: {
+    en: "Microphone access is required to place an order",
+    ar: "يجب السماح بالوصول إلى الميكروفون لتقديم الطلب",
+  },
+  selectBranch: { en: "Please select a branch", ar: "يرجى اختيار الفرع" },
+  browserWarning: {
+    en: "⚠️ This app works best in Chrome, Safari, Firefox, Edge, or Samsung Internet.",
+    ar: "⚠️ يعمل هذا التطبيق بشكل أفضل في Chrome أو Safari أو Firefox أو Edge.",
+  },
+  waTooltip: {
+    en: "💬 Need help or want to change your order?",
+    ar: "💬 تحتاج مساعدة أو تريد تعديل طلبك؟",
+  },
+  waTitle: { en: "💬 WhatsApp Us", ar: "💬 راسلنا على واتساب" },
+  waSub: {
+    en: "Select your branch to start a chat",
+    ar: "اختر فرعك لبدء المحادثة",
+  },
+  waSelect: { en: "Select branch...", ar: "اختر الفرع..." },
+  waOpen: { en: "Open WhatsApp →", ar: "فتح واتساب →" },
+};
+
+const B = ({ k }: { k: keyof typeof t }) => {
+  const item = t[k] as { en: string; ar: string };
+  return (
+    <>
+      <span>{item.en}</span>
+      <span className="ar"> / {item.ar}</span>
+    </>
+  );
+};
+
 function haversineKm(
   a: { lat: number; lng: number },
   b: { lat: number; lng: number },
@@ -96,6 +177,7 @@ export default function CustomerPage() {
       { timeout: 8000 },
     );
   }, []);
+
   useEffect(() => {
     const ua = navigator.userAgent;
     const isChrome = /Chrome/.test(ua) && !/Edg|OPR/.test(ua);
@@ -104,11 +186,12 @@ export default function CustomerPage() {
     const isEdge = /Edg/.test(ua);
     const isSamsung = /SamsungBrowser/.test(ua);
     const hasWebRTC = !!(
-      window.RTCPeerConnection &&
-      navigator.mediaDevices?.getUserMedia
+      window.RTCPeerConnection && navigator.mediaDevices?.getUserMedia
     );
-
-    if (!hasWebRTC || !isChrome && !isSafari && !isFirefox && !isEdge && !isSamsung)
+    if (
+      !hasWebRTC ||
+      (!isChrome && !isSafari && !isFirefox && !isEdge && !isSamsung)
+    )
       setBrowserWarning(true);
   }, []);
 
@@ -135,7 +218,7 @@ export default function CustomerPage() {
     if (audioStreamRef.current) {
       audioStreamRef.current
         .getTracks()
-        .forEach((t) => pc.addTrack(t, audioStreamRef.current!));
+        .forEach((tr) => pc.addTrack(tr, audioStreamRef.current!));
     }
     peerRef.current = pc;
   }, []);
@@ -193,7 +276,7 @@ export default function CustomerPage() {
     });
     socket.on("partner-disconnected", () => {
       cleanup();
-      showToast("Order taker disconnected");
+      showToast(`${t.disconnected.en} / ${t.disconnected.ar}`);
       setScreen("form");
       setCallStartedAt(null);
     });
@@ -205,7 +288,7 @@ export default function CustomerPage() {
   const cleanup = () => {
     peerRef.current?.close();
     peerRef.current = null;
-    audioStreamRef.current?.getTracks().forEach((t) => t.stop());
+    audioStreamRef.current?.getTracks().forEach((tr) => tr.stop());
     audioStreamRef.current = null;
     setIsMuted(false);
     setJoining(false);
@@ -227,7 +310,7 @@ export default function CustomerPage() {
       branchId = closest?.id || branches[0]?.id || "";
     }
     if (!branchId) {
-      showToast("Please select a branch");
+      showToast(`${t.selectBranch.en} / ${t.selectBranch.ar}`);
       return;
     }
     setJoining(true);
@@ -244,7 +327,7 @@ export default function CustomerPage() {
       });
       setScreen("queue");
     } catch {
-      showToast("Microphone access is required to place an order");
+      showToast(`${t.micRequired.en} / ${t.micRequired.ar}`);
     } finally {
       setJoining(false);
     }
@@ -254,23 +337,20 @@ export default function CustomerPage() {
     cleanup();
     window.location.reload();
   };
-
   const toggleMute = () => {
     if (!audioStreamRef.current) return;
     const next = !isMuted;
-    audioStreamRef.current.getAudioTracks().forEach((t) => {
-      t.enabled = !next;
+    audioStreamRef.current.getAudioTracks().forEach((tr) => {
+      tr.enabled = !next;
     });
     setIsMuted(next);
   };
-
   const endCall = () => {
     socketRef.current?.emit("end-call");
     cleanup();
     setScreen("form");
   };
 
-  // ── Call screen ────────────────────────────────────────────────────────────
   if (screen === "call") {
     return (
       <div style={{ position: "fixed", inset: 0, background: "#000" }}>
@@ -280,55 +360,60 @@ export default function CustomerPage() {
           playsInline
           style={{ width: "100%", height: "100%", objectFit: "cover" }}
         />
-
         <div className="call-controls">
           <button
             className={`call-btn${isMuted ? " active" : ""}`}
             onClick={toggleMute}
           >
             <span className="btn-icon">{isMuted ? "🔇" : "🎤"}</span>
-            {isMuted ? "Unmute" : "Mute"}
+            <span>{isMuted ? t.unmute.en : t.mute.en}</span>
+            <span className="ar">{isMuted ? t.unmute.ar : t.mute.ar}</span>
           </button>
           <button className="call-btn danger" onClick={endCall}>
             <span className="btn-icon">✕</span>
-            End Call
+            <span>{t.endCall.en}</span>
+            <span className="ar">{t.endCall.ar}</span>
           </button>
           {duration && <div className="call-timer-pill">⏱ {duration}</div>}
         </div>
-
         {toast && <div className="toast">{toast}</div>}
       </div>
     );
   }
 
-  // ── Card screens ───────────────────────────────────────────────────────────
   return (
     <main>
       {toast && <div className="toast">{toast}</div>}
-      <h1>🛒 BESTWAY Supermarket Ordering</h1>
+      <h1 style={{ textAlign: "center" }}>
+        <div>{t.title.en}</div>
+        <div className="ar" style={{ fontSize: 20, marginTop: 4 }}>
+          {t.title.ar}
+        </div>
+      </h1>
 
-      {/* Form */}
       {screen === "form" && (
         <div className="card">
           {browserWarning && (
             <div className="browser-warning">
-              ⚠️ This app works best in Chrome, Safari, Firefox, Edge, or Samsung Internet.
+              <div>{t.browserWarning.en}</div>
+              <div className="ar">{t.browserWarning.ar}</div>
             </div>
           )}
 
           <div className="field">
             <label>
-              Branch
+              {t.branch.en} / <span className="ar">{t.branch.ar}</span>
               {locationStatus === "detecting" && (
                 <span style={{ marginLeft: 6, opacity: 0.6, fontWeight: 400 }}>
                   {" "}
-                  · detecting...
+                  · {t.detecting.en} /{" "}
+                  <span className="ar">{t.detecting.ar}</span>
                 </span>
               )}
               {locationStatus === "found" && (
                 <span style={{ marginLeft: 6, opacity: 0.6, fontWeight: 400 }}>
                   {" "}
-                  · closest selected
+                  · {t.closest.en} / <span className="ar">{t.closest.ar}</span>
                 </span>
               )}
             </label>
@@ -336,7 +421,9 @@ export default function CustomerPage() {
               value={selectedBranchId}
               onChange={(e) => setSelectedBranchId(e.target.value)}
             >
-              <option value="auto">📍 Auto (closest)</option>
+              <option value="auto">
+                {t.auto.en} / {t.auto.ar}
+              </option>
               {branches.map((b) => {
                 const dist = userLocation ? haversineKm(userLocation, b) : null;
                 return (
@@ -350,9 +437,11 @@ export default function CustomerPage() {
           </div>
 
           <div className="field">
-            <label>Your Name</label>
+            <label>
+              {t.yourName.en} / <span className="ar">{t.yourName.ar}</span>
+            </label>
             <input
-              placeholder="e.g. Ahmed Hassan"
+              placeholder={`${t.namePlaceholder.en} / ${t.namePlaceholder.ar}`}
               autoComplete="name"
               value={customerName}
               onChange={(e) => setCustomerName(e.target.value)}
@@ -361,9 +450,11 @@ export default function CustomerPage() {
           </div>
 
           <div className="field">
-            <label>Phone Number</label>
+            <label>
+              {t.phone.en} / <span className="ar">{t.phone.ar}</span>
+            </label>
             <input
-              placeholder="e.g. 01012345678"
+              placeholder={t.phonePlaceholder.en}
               autoComplete="tel"
               value={customerPhone}
               onChange={(e) => setCustomerPhone(e.target.value)}
@@ -372,9 +463,11 @@ export default function CustomerPage() {
           </div>
 
           <div className="field">
-            <label>Delivery Address</label>
+            <label>
+              {t.address.en} / <span className="ar">{t.address.ar}</span>
+            </label>
             <input
-              placeholder="e.g. 12 Nile St, Cairo"
+              placeholder={`${t.addressPlaceholder.en} / ${t.addressPlaceholder.ar}`}
               autoComplete="street-address"
               value={customerAddress}
               onChange={(e) => setCustomerAddress(e.target.value)}
@@ -383,7 +476,8 @@ export default function CustomerPage() {
           </div>
 
           <div className="recording-notice">
-            🎙️ This call may be recorded for quality and training purposes.
+            <div>{t.recording.en}</div>
+            <div className="ar">{t.recording.ar}</div>
           </div>
 
           <button
@@ -391,12 +485,16 @@ export default function CustomerPage() {
             disabled={
               joining ||
               !customerName.trim() ||
-              !customerPhone.trim() ||
-              !customerAddress.trim()
+              !customerAddress.trim() ||
+              !customerPhone.trim()
             }
           >
-            {joining ? "Connecting..." : "Place Call"}
+            <div>{joining ? t.connecting.en : t.placeCall.en}</div>
+            <div className="ar">
+              {joining ? t.connecting.ar : t.placeCall.ar}
+            </div>
           </button>
+
           {(() => {
             const branchId =
               selectedBranchId === "auto" ? null : selectedBranchId;
@@ -406,22 +504,36 @@ export default function CustomerPage() {
             return inCall > 0 ? (
               <div className="taker-count-pill" style={{ marginTop: 12 }}>
                 <span className="taker-count-dot active" />
-                {inCall} order taker{inCall !== 1 ? "s" : ""} online
+                <span>{t.takersOnline.en(inCall)}</span>
+                <span className="ar"> / {t.takersOnline.ar(inCall)}</span>
               </div>
             ) : null;
           })()}
         </div>
       )}
 
-      {/* Queue */}
       {screen === "queue" && (
         <div className="card" style={{ textAlign: "center" }}>
-          <p>⏳ You&apos;re in the queue</p>
+          <p>
+            {t.inQueue.en}
+            <br />
+            <span className="ar">{t.inQueue.ar}</span>
+          </p>
           <div className="queue-position">{queuePosition}</div>
           <p style={{ marginBottom: 24 }}>
-            {queuePosition === 0
-              ? "You're next!"
-              : `${queuePosition === 1 ? "person" : "people"} ahead of you`}
+            {queuePosition === 0 ? (
+              <>
+                {t.youreNext.en}
+                <br />
+                <span className="ar">{t.youreNext.ar}</span>
+              </>
+            ) : (
+              <>
+                {t.ahead.en(queuePosition)}
+                <br />
+                <span className="ar">{t.ahead.ar(queuePosition)}</span>
+              </>
+            )}
           </p>
           {(() => {
             const branchId =
@@ -436,9 +548,17 @@ export default function CustomerPage() {
                 <span
                   className={`taker-count-dot${inCall > 0 ? " active" : ""}`}
                 />
-                {inCall > 0
-                  ? `${inCall} order taker${inCall !== 1 ? "s" : ""} online`
-                  : "No order takers online right now"}
+                {inCall > 0 ? (
+                  <>
+                    <span>{t.takersOnline.en(inCall)}</span>
+                    <span className="ar"> / {t.takersOnline.ar(inCall)}</span>
+                  </>
+                ) : (
+                  <>
+                    <span>{t.noTakers.en}</span>
+                    <span className="ar"> / {t.noTakers.ar}</span>
+                  </>
+                )}
               </div>
             );
           })()}
@@ -447,47 +567,61 @@ export default function CustomerPage() {
             style={{ marginTop: 20 }}
             onClick={leaveQueue}
           >
-            Leave Queue
+            <div>{t.leaveQueue.en}</div>
+            <div className="ar">{t.leaveQueue.ar}</div>
           </button>
         </div>
       )}
 
-      {/* Waiting */}
       {screen === "waiting" && (
         <div className="card" style={{ textAlign: "center" }}>
           <div className="pulse-ring">📞</div>
           <p style={{ fontSize: 18, marginBottom: 8 }}>
-            Ringing order taker...
+            {t.ringing.en}
+            <br />
+            <span className="ar">{t.ringing.ar}</span>
           </p>
           <p style={{ fontSize: 14, opacity: 0.7, marginBottom: 28 }}>
-            Please wait, someone will answer shortly
+            {t.pleaseWait.en}
+            <br />
+            <span className="ar">{t.pleaseWait.ar}</span>
           </p>
           <button className="btn-ghost" onClick={leaveQueue}>
-            Cancel
+            <div>{t.cancel.en}</div>
+            <div className="ar">{t.cancel.ar}</div>
           </button>
         </div>
       )}
 
-      {/* WhatsApp Tooltip - fixed above the bubble */}
       {!tooltipDismissed && !showWhatsapp && (
         <div className="wa-tooltip" onClick={() => setTooltipDismissed(true)}>
-          💬 Need help or want to change your order?
+          <div>{t.waTooltip.en}</div>
+          <div className="ar" style={{ marginTop: 2 }}>
+            {t.waTooltip.ar}
+          </div>
         </div>
       )}
 
-      {/* WhatsApp branch selector panel */}
       {showWhatsapp && (
         <div className="wa-panel">
           <button className="wa-close" onClick={() => setShowWhatsapp(false)}>
             ✕
           </button>
-          <div className="wa-panel-title">💬 WhatsApp Us</div>
-          <div className="wa-panel-sub">Select your branch to start a chat</div>
+          <div className="wa-panel-title">
+            {t.waTitle.en} / <span className="ar">{t.waTitle.ar}</span>
+          </div>
+          <div className="wa-panel-sub">
+            {t.waSub.en}
+            <br />
+            <span className="ar">{t.waSub.ar}</span>
+          </div>
           <select
             value={waBranch}
             onChange={(e) => setWaBranch(e.target.value)}
           >
-            <option value="">Select branch...</option>
+            <option value="">
+              {t.waSelect.en} / {t.waSelect.ar}
+            </option>
             {branches
               .filter((b) => b.whatsapp)
               .map((b) => (
@@ -504,12 +638,11 @@ export default function CustomerPage() {
               setShowWhatsapp(false);
             }}
           >
-            Open WhatsApp →
+            {t.waOpen.en} / {t.waOpen.ar}
           </button>
         </div>
       )}
 
-      {/* WhatsApp floating button */}
       <button
         className="wa-bubble"
         onClick={() => {
