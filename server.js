@@ -1,4 +1,5 @@
 process.env.TURBOPACK = "0";
+require("dotenv").config();
 const { createServer: createHttpsServer } = require("https");
 const { createServer: createHttpServer } = require("http");
 const { parse } = require("url");
