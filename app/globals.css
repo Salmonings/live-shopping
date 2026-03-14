@@ -1215,3 +1215,14 @@ button.btn-red {
 .rec-action-btn.play:hover { background: rgba(99,102,241,0.2); }
 .rec-action-btn.delete:hover { background: rgba(220,38,38,0.2); }
 .rec-action-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.browser-warning {
+  background: rgba(234, 179, 8, 0.15);
+  border: 1px solid rgba(234, 179, 8, 0.4);
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.9);
+  margin-bottom: 16px;
+  line-height: 1.5;
+}
