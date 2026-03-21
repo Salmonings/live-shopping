@@ -46,8 +46,6 @@ const t = {
   selectBranchErr: { en: "Please select a branch", ar: "يرجى اختيار الفرع" },
 };
 
-// ── Recording helpers (unchanged) ─────────────────────────────────────────────
-
 function getMimeType(): string {
   const types = [
     "video/webm;codecs=vp9,opus",
@@ -183,8 +181,6 @@ async function stopAndUpload(
     }
   });
 }
-
-// ── Component ──────────────────────────────────────────────────────────────────
 
 export default function OrderTaker() {
   const [loggedIn, setLoggedIn] = useState(false);
@@ -343,9 +339,23 @@ export default function OrderTaker() {
         if (pc.connectionState === "connected") {
           setConnected(true);
           stopRingtone();
+          pc.getSenders().forEach(async (s) => {
+            if (s.track?.kind === "video") return
+            const params = s.getParameters()
+            if (!params.encodings) params.encodings = [{}];
+            params.encodings[0].maxBitrate = 2500000;
+            await s.setParameters(params);
+          });
         }
-        if (["disconnected", "failed", "closed"].includes(pc.connectionState))
-          handleDisconnect(false);
+        if (pc.connectionState === "disconnected") {
+          // Wait 5 seconds — if it recovers, do nothing
+          setTimeout(() => {
+            if (pc.connectionState !== "connected") handleDisconnect(false)
+          }, 5000)
+        }
+        if (pc.connectionState === "failed" || pc.connectionState === "closed") {
+          handleDisconnect(false)
+        }
       };
       peerRef.current = pc;
       if (localStreamRef.current) {
@@ -436,7 +446,12 @@ export default function OrderTaker() {
   const ensureLocalStream = async () => {
     if (localStreamRef.current) return localStreamRef.current;
     const stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode },
+      video: {
+        facingMode,
+        width: { ideal: 1280 },
+        height: { ideal: 720 },
+        frameRate: { ideal: 30 },
+      },
       audio: { echoCancellation: true, noiseSuppression: true },
     });
     localStreamRef.current = stream;
